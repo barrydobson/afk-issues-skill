@@ -20,10 +20,7 @@ Once the plugin is installed, Claude Code discovers both automatically - the ski
 
 ### Optional
 
-The skill is self-contained but works better alongside two [superpowers](https://github.com/obra/superpowers) skills. It checks for them on start, tells you which mode it's in, and falls back when they're absent:
-
-- `superpowers:dispatching-parallel-agents` - disciplined fan-out of workers.
-- `superpowers:requesting-code-review` - a deeper review pass for risky changes.
+The skill is self-contained but works better with two superpowers skills - see [Recommended: superpowers](#recommended-superpowers) below.
 
 ## Install
 
@@ -39,6 +36,24 @@ This repo is its own marketplace (see `.claude-plugin/marketplace.json`), so add
 ```
 
 `afk-issues@afk-issues` is `<plugin>@<marketplace>` - both are named `afk-issues` here.
+
+## Recommended: superpowers
+
+This plugin runs fine on its own, but two skills from the [superpowers](https://github.com/obra/superpowers) plugin sharpen it. On start the orchestrator checks whether they're installed, tells you which mode it's in, and falls back gracefully when they're absent - so they're a recommendation, not a hard dependency.
+
+| Skill | What it adds | Fallback when absent |
+|-------|--------------|----------------------|
+| `superpowers:dispatching-parallel-agents` | Disciplined fan-out when dispatching worker batches. | Built-in parallel dispatch, capped at 5 workers in waves. |
+| `superpowers:requesting-code-review` | A deeper review pass for risky PRs. | The orchestrator's own quick review, with the risk flagged to you at handoff. |
+
+Both ship in the **superpowers** plugin, which is its own marketplace. Install it the same way as this one:
+
+```bash
+/plugin marketplace add obra/superpowers
+/plugin install superpowers@superpowers-dev
+```
+
+(The marketplace is named `superpowers-dev`; the plugin is `superpowers`.) Once installed, this plugin picks them up automatically on the next run - no configuration needed.
 
 ## Usage
 
