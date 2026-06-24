@@ -1,0 +1,12 @@
+{
+  "name": "afk-issues",
+  "owner": {
+    "name": "Barry Dobson"
+  },
+  "plugins": [
+    {
+      "name": "afk-issues",
+      "source": { "type": "local", "path": "./" }
+    }
+  ]
+}
