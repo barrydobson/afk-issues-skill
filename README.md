@@ -27,14 +27,18 @@ The skill is self-contained but works better alongside two [superpowers](https:/
 
 ## Install
 
-Plugins install through a marketplace. Add one that lists this repo, then install:
+This repo is its own marketplace (see `.claude-plugin/marketplace.json`), so add it then install:
 
 ```bash
-/plugin marketplace add <your-marketplace-repo>
-/plugin install afk-issues@<marketplace-name>
+# From a git URL
+/plugin marketplace add barrydobson/afk-issues-skill
+# ...or from a local clone
+/plugin marketplace add ./afk-issues-skill
+
+/plugin install afk-issues@afk-issues
 ```
 
-This repo does not yet ship a `.claude-plugin/marketplace.json`, so add it to a marketplace entry you control (or one in this repo) before installing.
+`afk-issues@afk-issues` is `<plugin>@<marketplace>` - both are named `afk-issues` here.
 
 ## Usage
 
