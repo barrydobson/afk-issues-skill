@@ -1,0 +1,8 @@
+{
+  "name": "afk-issues",
+  "description": "Autonomously work a batch of GitHub issues to reviewed pull requests. Orchestrator skill plus the issue-worker agent it dispatches.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Barry Dobson"
+  }
+}
