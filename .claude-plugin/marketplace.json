@@ -8,7 +8,7 @@
     {
       "name": "afk-issues",
       "description": "Autonomously work a batch of tracker issues to reviewed GitHub pull requests. GitHub by default; pluggable to Jira and others via a repo adapter doc. Orchestrator skill plus the issue-worker agent it dispatches.",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "source": "./",
       "author": {
         "name": "Barry Dobson"

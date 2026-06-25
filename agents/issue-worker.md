@@ -84,6 +84,8 @@ Closes #<n2>
 ...
 
 <plain factual description of what the code now does>"
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
 Open the PR as **draft** - the orchestrator marks it ready once it passes
@@ -93,6 +95,8 @@ links/closes them: GitHub uses one `Closes #<n>` line **per issue** in the body
 key in the PR **title** (e.g. `PI-1288: ...`) so its VCS integration links the
 PR, plus the key in the body. Keep the body plain and factual - what the code
 does now, not the journey. Use the repo's PR template if one exists.
+Whether a PR template exists or not, always use the `Generated With...` footer
+in the body of the pull request
 
 ## Rework mode
 
