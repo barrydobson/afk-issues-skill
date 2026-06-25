@@ -34,6 +34,15 @@ Hold the working list in your session context for the run. If resumed later, rec
 
 ### 1. Resolve scope
 
+**First, resolve the tracker.** Look for `docs/agents/issue-tracker.md` in the
+repo. If it exists, you are in **adapter mode** - that doc (and
+`docs/agents/triage-labels.md`) defines the commands for listing, viewing,
+gating, and transitioning items; follow it wherever this skill shows a `gh`
+command. If it does not exist, use the built-in GitHub (`gh`) commands shown
+below. Announce which mode you are in once, alongside the superpowers-mode
+announcement, then go heads-down. The operations an adapter doc must cover are
+listed in `tracker-adapter.md`.
+
 Turn the instruction into a concrete list of open issue numbers.
 
 - **Explicit numbers** ("12 15 20"): use them directly.
@@ -42,13 +51,18 @@ Turn the instruction into a concrete list of open issue numbers.
   gh issue list --label "bug" --state open --json number,title,labels --limit 100
   ```
 
-Then **gate**: drop any issue lacking the `ready-for-agent` label - workers would refuse them anyway. List the dropped ones for the user.
+Then **gate**: drop any item not in the adapter's `ready-for-agent` state - the
+`ready-for-agent` label for GitHub, or the equivalent status the adapter
+defines (e.g. a board column for Jira). Workers would refuse them anyway. List
+the dropped ones for the user.
 
 **Confirm the resolved list with the user before doing any work**, then go heads-down. This is the one checkpoint: they approve *what* gets worked, not each step.
 
 ### 2. Assess and group
 
-Read each issue (`gh issue view <n> --json number,title,body,labels,comments`). Decide batching:
+Read each item (in adapter mode use the adapter's view command; the GitHub
+default is `gh issue view <n> --json number,title,body,labels,comments`).
+Decide batching:
 
 - **Group together** issues that are likely to touch the same files, or that are small mechanical changes in the same area. One worker handles the group and opens **one PR that closes all of them** (`Closes #12`, `Closes #15`).
 - **Keep separate** anything large, or that touches unrelated parts of the codebase.
@@ -147,6 +161,12 @@ After handing off, the human reviews PRs one by one. Respond to two signals:
   git worktree list   # find the path for the merged branch
   ```
   Then dispatch an `issue-worker` in **cleanup mode** with the branch and worktree path, or do it yourself: `git worktree remove <path>` from the main root, then `git worktree prune`. Never `rm -rf` a worktree.
+
+  In **adapter mode**, also transition the merged item to the adapter's *done*
+  state if it does not close automatically (GitHub closes via `Closes #<n>`;
+  Jira needs an explicit transition, e.g.
+  `acli jira workitem transition --key <KEY> --status "Done (Complete)"`). Do
+  this once per merged item, as part of cleanup.
 
 - **"Reviewer left changes on PR #N" / "pick #N back up"**: read the human's review, then dispatch an `issue-worker` in rework mode (step 6) with the branch, worktree path, and the review feedback.
   ```bash
