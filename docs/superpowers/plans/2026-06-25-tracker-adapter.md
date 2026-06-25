@@ -361,6 +361,18 @@ git commit -m "feat: make issue-worker tracker-aware"
 - Consumes: behaviour established in Tasks 1-3.
 - Produces: project docs and manifests consistent with tracker-agnostic behaviour.
 
+> **Note:** `CLAUDE.md` is untracked and exists only in the main checkout, not in this worktree. Step 0 brings it into the branch before editing.
+
+- [ ] **Step 0: Bring the untracked CLAUDE.md into the branch**
+
+Run from the worktree root:
+```bash
+MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
+cp "$MAIN_ROOT/CLAUDE.md" ./CLAUDE.md
+git status --short CLAUDE.md   # expect: ?? CLAUDE.md
+```
+Expected: `?? CLAUDE.md` (now present in the worktree, ready to edit and commit).
+
 - [ ] **Step 1: Update the project CLAUDE.md invariant**
 
 In `CLAUDE.md`, replace the bullet:
