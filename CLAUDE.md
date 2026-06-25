@@ -9,6 +9,7 @@ A Claude Code plugin, not an application. There is no build, lint, or test step 
 ```
 skills/afk-issues/SKILL.md   the orchestrator's instructions (skill `afk-issues:afk-issues`)
 agents/issue-worker.md        the worker's instructions (subagent_type `issue-worker`)
+skills/afk-issues/tracker-adapter.md  the tracker adapter contract (GitHub default + Jira example)
 .claude-plugin/plugin.json    plugin manifest
 .claude-plugin/marketplace.json  self-marketplace (this repo installs itself)
 ```
@@ -22,11 +23,17 @@ The whole design is one rule - **the orchestrator never writes code, the worker 
 
 When you change behaviour, decide first which file owns it. Workflow knowledge (how to worktree, how to PR) lives in the worker; what-to-work-on judgement lives in the orchestrator. Don't duplicate one into the other.
 
+The tracker is pluggable. `skills/afk-issues/tracker-adapter.md` defines the
+contract; a repo supplies `docs/agents/issue-tracker.md` to drive a non-GitHub
+tracker (e.g. Jira via `acli`), and both the orchestrator and worker fall back
+to inline GitHub commands when no adapter doc is present. Worker owns pickup →
+in-progress; orchestrator owns merge → done; rework never transitions.
+
 ## Invariants that must survive any edit
 
 These are load-bearing. Breaking one quietly breaks the plugin's safety story.
 
-- **State lives in GitHub, never on disk.** No state files. Draft vs ready PR status *is* the review state; a resumed session reconstructs everything from `gh`. Any edit that introduces a tracking file is wrong.
+- **State lives in the system of record, never on disk.** No state files. Draft vs ready PR status *is* the review state (always GitHub); issue lifecycle state lives in the tracker (GitHub issues, or whatever the repo's `docs/agents/issue-tracker.md` adapter describes). A resumed session reconstructs everything from those systems. Any edit that introduces a tracking file is wrong.
 - **Draft = not yet reviewed, ready = passed.** Workers always open PRs `--draft`. Only the orchestrator marks ready (`gh pr ready`), and only after review. This is what stops a human merging unreviewed work.
 - **Bounded loops.** Concurrency caps at 5 workers in flight; rework caps at 2 rounds per PR; CI is watched with one `timeout ... gh pr checks --watch` call (exit 124 = bail), never polled in a loop. These caps exist to bound token spend - don't relax them without saying why.
 - **One PR per batch, one worktree per batch.** Rework pushes to the same branch (never a second PR). Cleanup uses `git worktree remove`, never `rm -rf`.
