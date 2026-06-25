@@ -52,7 +52,7 @@ and shows the GitHub default plus a Jira (dev-metrics) example for each.
 | View one item | both | `gh issue view <n> --json ...` | `acli jira workitem view <KEY> --fields "*all"` |
 | Verify actionable | worker | issue state is OPEN | status not in a Done category |
 | On pickup -> in progress | worker | none (no-op; open issue + draft PR is the signal) | transition to `In Progress` |
-| PR reference syntax | worker | `Closes #<n>` (auto-closes on merge) | reference `<KEY>` in the PR body (no auto-close) |
+| PR reference syntax | worker | `Closes #<n>` in the body (auto-closes on merge) | `<KEY>` in the PR title (e.g. `PI-1288: ...`) and body; no auto-close, so the title carries the link |
 | Branch identifier | worker | `issue-<n>-<slug>` | `<KEY>-<slug>` (e.g. `PI-1288-add-foo`) |
 | On merge -> done | orchestrator (cleanup) | automatic via `Closes` | transition to `Done (Complete)` |
 
@@ -77,6 +77,8 @@ read; this contract doc exists so a human knows what their doc must cover.
 - A discovery preamble mirroring the orchestrator's.
 - Build mode parametrises fetch, actionable-check, branch identifier, and PR
   reference syntax on the adapter; GitHub commands stay inline as the default.
+  For trackers without PR auto-close (e.g. Jira), the worker must put the item
+  key in the PR title so the tracker's VCS integration links it.
 - Build mode adds the on-pickup transition to In Progress (no-op for GitHub).
 - Cleanup mode adds the on-merge Done transition where the adapter defines one.
 - Rework mode never transitions (it only updates the existing branch/PR).
