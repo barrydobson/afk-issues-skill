@@ -27,6 +27,7 @@ column is the built-in default; the Jira column shows the convention used in
 | List ready items | orchestrator (scope) | `gh issue list --label ready-for-agent --state open --json number,title,labels` | `acli jira workitem search --jql "project = PI AND labels = development-metrics AND status = 'Ready For Agent'" --json` |
 | The gate | orchestrator | `ready-for-agent` label present | status = `Ready For Agent` |
 | View one item | both | `gh issue view <n> --json number,title,body,labels,state,url,comments` | `acli jira workitem view <KEY> --fields "*all" --json` |
+| Dependencies (blocks / blocked-by) | orchestrator (assess) | `Blocked by #<n>` / `Depends on #<n>` references in the issue body | `is blocked by` / `blocks` issue links (in the item's link fields) |
 | Verify actionable | worker | issue state is `OPEN` | status not in a `Done` category |
 | On pickup → in progress | worker | none (no-op; an open issue plus a draft PR is the signal) | `acli jira workitem transition --key <KEY> --status "In Progress"` |
 | PR reference syntax | worker | `Closes #<n>` in the body (auto-closes on merge) | `<KEY>` in the PR **title** (e.g. `PI-1288: ...`) and body; no auto-close, so the title carries the link the tracker's VCS integration follows |

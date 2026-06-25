@@ -67,8 +67,9 @@ Decide batching:
 - **Group together** issues that are likely to touch the same files, or that are small mechanical changes in the same area. One worker handles the group and opens **one PR that closes all of them** (`Closes #12`, `Closes #15`).
 - **Keep separate** anything large, or that touches unrelated parts of the codebase.
 - **Size limit**: a PR must stay reviewable by a human. If grouping would produce a sprawling diff, split it. When unsure, keep them separate.
+- **Respect dependencies.** Check each item for blocking relationships using the adapter's *dependencies* operation (the GitHub default is `Blocked by #<n>` / `Depends on #<n>` references in the body; Jira uses `is blocked by` / `blocks` issue links). A blocked item cannot be worked until its blocker's PR is **merged** - workers branch off `main` and won't see unmerged changes. So either put a blocker and its dependent in the **same batch** (one PR, one worktree, implemented blocker-first) when they're small and adjacent, or **split them across waves**: dispatch the blocker first and hold the dependent until that PR merges (step 8). Never dispatch a dependent whose blocker is still open.
 
-Record, per batch: the issue number(s) and a one-line rationale for the grouping.
+Record, per batch: the issue number(s), a one-line rationale for the grouping, and any blocker it waits on.
 
 **Note cross-batch file overlap.** If two separate batches are likely to touch the same file (even in different regions), their parallel PRs will conflict on merge. Don't force them into one batch just to avoid that - instead record the overlap and call it out at handoff (step 7) so the human knows the merge order matters.
 
@@ -89,6 +90,8 @@ Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your 
 - Anything batch-specific worth flagging (a shared file, a linked plan).
 
 **Cap concurrency at 5 workers in flight.** Never fan out the whole backlog at once - it blows up rate limits, token spend, and merge conflicts. Dispatch in waves of at most 5: review and bank each PR as it lands (step 5), then dispatch the next batch into the freed slot. A 30-issue backlog runs as ~6 waves, not 30 simultaneous workers.
+
+**Hold back blocked batches.** Don't dispatch a batch whose blocker (step 2) hasn't merged yet. If the blocker's PR is only ready (not merged) by the end of the run, surface the dependent as waiting on it (step 7) rather than working it against stale `main`.
 
 The agent reports back the PR URL, branch name, and worktree path. If it returns no PR (blocked, an issue turned out closed, batch too large to keep reviewable), note it against those issues and move on - do not retry blindly. If it reports the batch was too large, re-split and re-dispatch.
 
@@ -189,3 +192,4 @@ When you catch yourself thinking the excuse, the reality is the rule.
 | "I'll gate the labels later" | Gate at scope time. Skipping it means finding out only when a worker refuses. |
 | "Rework needs a fresh PR" | Push to the existing branch. A second PR on rework orphans the first. |
 | "The worker was blocked, I'll retry it" | Report it and move on. Don't retry a blocked issue blindly. |
+| "I'll dispatch all of these in parallel" | Check dependencies first. A dependent branched off `main` can't see its blocker's unmerged work - order the waves. |
