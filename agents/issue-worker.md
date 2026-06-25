@@ -30,7 +30,7 @@ Decide your mode from what the dispatch gives you:
 - **Rework** - you are given a branch name, worktree path, and feedback (from the orchestrator's review or a human PR review). Fix it on the existing branch.
 - **Cleanup** - you are told a branch/PR is merged and asked to remove its worktree.
 
-The orchestrator has already confirmed scope and the `ready-for-agent` label gate. You do not re-gate labels. You do verify issue state where it matters.
+The orchestrator has already confirmed scope and the ready-for-agent gate. You do not re-gate. You do verify item state where it matters.
 
 ## Build mode
 

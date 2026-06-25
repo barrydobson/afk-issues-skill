@@ -85,7 +85,7 @@ Pass this as the model override when dispatching.
 
 Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your chosen model as the model override). Each `issue-worker` isolates its own worktree, so parallel workers will not collide. Each dispatch prompt needs only the inputs, not the workflow:
 
-- The issue number(s) in the batch (the agent handles fetch, worktree, implement, test, push, and a single PR with one `Closes #<n>` line per issue).
+- The issue number(s) in the batch (the agent handles fetch, worktree, implement, test, push, and a single PR with one `Closes #<n>` line per issue (in adapter mode the worker references items per the adapter's PR-reference syntax instead)).
 - Anything batch-specific worth flagging (a shared file, a linked plan).
 
 **Cap concurrency at 5 workers in flight.** Never fan out the whole backlog at once - it blows up rate limits, token spend, and merge conflicts. Dispatch in waves of at most 5: review and bank each PR as it lands (step 5), then dispatch the next batch into the freed slot. A 30-issue backlog runs as ~6 waves, not 30 simultaneous workers.
