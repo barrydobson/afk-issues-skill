@@ -84,16 +84,13 @@ Pass this as the model override when dispatching.
 
 ### 4. Dispatch workers
 
-Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your chosen model as the model override). Each `issue-worker` isolates its own worktree, so parallel workers will not collide. Each dispatch prompt needs only the inputs, not the workflow:
-
-- The issue number(s) in the batch (the agent handles fetch, worktree, implement, test, push, and a single PR with one `Closes #<n>` line per issue (in adapter mode the worker references items per the adapter's PR-reference syntax instead)).
-- Anything batch-specific worth flagging (a shared file, a linked plan).
+Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your chosen model as the model override). Each `issue-worker` isolates its own worktree, so parallel workers will not collide. Build the dispatch prompt per `dispatch-contract.md` §1 (New task) - embed the full title/body/comments/state you already read for each issue in step 2, so the worker never re-fetches. Carry forward `LEARNINGS_FROM_PRIOR_BATCHES` from any batch already completed this run.
 
 **Cap concurrency at 5 workers in flight.** Never fan out the whole backlog at once - it blows up rate limits, token spend, and merge conflicts. Dispatch in waves of at most 5: review and bank each PR as it lands (step 5), then dispatch the next batch into the freed slot. A 30-issue backlog runs as ~6 waves, not 30 simultaneous workers.
 
 **Hold back blocked batches.** Don't dispatch a batch whose blocker (step 2) hasn't merged yet. If the blocker's PR is only ready (not merged) by the end of the run, surface the dependent as waiting on it (step 7) rather than working it against stale `main`.
 
-The agent reports back the PR URL, branch name, and worktree path. If it returns no PR (blocked, an issue turned out closed, batch too large to keep reviewable), note it against those issues and move on - do not retry blindly. If it reports the batch was too large, re-split and re-dispatch.
+The agent's final report is `dispatch-contract.md` §4 (Work-complete) or §5 (Need-input) - never a bare summary. On §5, decide from its `OPTIONS` and either re-dispatch (rework, step 6, with your decision as feedback) or, if you can't decide alone, park the batch and surface it at handoff (step 7). On §4 with no PR (blocked, an issue turned out closed, batch too large to keep reviewable), note it against those issues and move on - do not retry blindly. If it reports the batch was too large, re-split and re-dispatch.
 
 ### 5. Review each PR
 
@@ -114,6 +111,10 @@ Interpret the exit code once:
 - **0** - all checks green. Proceed to the verdict.
 - **non-zero from `gh`** (a check failed) - that's a NEEDS WORK; cite the failing check.
 - **124** - the `timeout` fired: CI is still queued/running after 15 min. **Do not keep waiting.** Leave the PR as draft, comment that CI never settled, and surface it to the human at handoff. Move on to other batches - a stuck pipeline must not block the run.
+
+Before judging the diff, check the worker's `ACCEPTANCE_CHECK` (§4 of `dispatch-contract.md`). If it's missing, vague, or doesn't actually support the `WORK_ACCEPTANCE`/`RESULT_ACCEPTANCE` you gave at dispatch, that's an automatic NEEDS WORK - route it into the rework loop (step 6) same as any other NEEDS WORK, under the same 2-round cap. Don't take a worker's word for "tests pass" without the evidence line; don't surface this to the human before the rework cap is hit.
+
+**Learnings triage.** If the report includes `LEARNINGS`, decide per item: discard (noise) or keep (a durable gotcha or insight). For each kept item, pick a recommended destination - **CLAUDE.md** for a fact about the codebase any future contributor needs, **memory** for a fact about this session's preferences, corrections, or ephemeral project state. Present every kept item in one `AskUserQuestion` call (one question per item, options: your recommendation first, the other second - the tool's built-in "Other" covers a custom target like a docs file). On the human's answer, write it yourself: for `CLAUDE.md`, edit the file and commit directly to main (documentation about the codebase, not tracker/PR state, so it skips the PR flow - the human already approved content and destination); for memory or a custom target, use whatever mechanism that destination implies. `LEARNINGS` only exists in your session context for this run - if you don't triage it now, it's gone once the run ends.
 
 Then record the verdict. The draft flag is the state; the comment is the rationale.
 
@@ -161,10 +162,7 @@ For a deeper look on a risky change, use `superpowers:requesting-code-review` in
 
 ### 6. Rework loop
 
-If your verdict is NEEDS WORK, dispatch a fresh `issue-worker` in **rework mode** (the branch and worktree persist). Give it:
-
-- The branch name and worktree path from step 4.
-- Your specific feedback.
+If your verdict is NEEDS WORK, dispatch a fresh `issue-worker` in **rework mode** (the branch and worktree persist). Build the dispatch prompt per `dispatch-contract.md` §2 (Rework task): the branch name and worktree path from step 4, and your specific feedback (including, where relevant, the reason from an insufficient `ACCEPTANCE_CHECK`).
 
 It fixes the work in that worktree and pushes to the same branch, updating the existing PR. Re-review (step 5). Don't open a second PR for the same issues.
 
@@ -194,7 +192,7 @@ After handing off, the human reviews PRs one by one. Respond to two signals:
   gh pr list --state merged --json number,headRefName,url --search "<scope>"
   git worktree list   # find the path for the merged branch
   ```
-  Then dispatch an `issue-worker` in **cleanup mode** with the branch and worktree path, or do it yourself: `git worktree remove <path>` from the main root, then `git worktree prune`. Never `rm -rf` a worktree.
+  Then dispatch an `issue-worker` in **cleanup mode** (dispatch prompt per `dispatch-contract.md` §3) with the branch and worktree path, or do it yourself: `git worktree remove <path>` from the main root, then `git worktree prune`. Never `rm -rf` a worktree.
 
   In **adapter mode**, also transition the merged item to the adapter's *done*
   state if it does not close automatically (GitHub closes via `Closes #<n>`;
@@ -224,3 +222,5 @@ When you catch yourself thinking the excuse, the reality is the rule.
 | "Rework needs a fresh PR" | Push to the existing branch. A second PR on rework orphans the first. |
 | "The worker was blocked, I'll retry it" | Report it and move on. Don't retry a blocked issue blindly. |
 | "I'll dispatch all of these in parallel" | Check dependencies first. A dependent branched off `main` can't see its blocker's unmerged work - order the waves. |
+| "The worker fetched the issue itself, so its numbers must be right" | You already fetched it in step 2 - the dispatch prompt carries that content forward per `dispatch-contract.md` §1. A worker re-fetching means the contract wasn't followed. |
+| "It says tests pass, I'll mark it ready" | `ACCEPTANCE_CHECK` needs evidence (test output, a URL), not a restated claim. Missing or vague evidence is an automatic NEEDS WORK into the rework loop - not a pass. |
