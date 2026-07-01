@@ -4,16 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code plugin, not an application. There is no build, lint, or test step - the "source" is prose: markdown instruction files plus three JSON manifests. Changes are validated by reading them, not by running them. The only mechanical check that matters is that the JSON stays well-formed and the frontmatter stays valid.
+A Claude Code plugin, not an application. It is almost entirely prose: markdown instruction files plus three JSON manifests, validated by reading rather than running. The one exception is `scripts/` - a couple of git-plumbing helpers the worker invokes. Mechanical checks: the JSON stays well-formed, the frontmatter stays valid, and the scripts stay `shellcheck`/`shfmt` clean.
 
 ```
 skills/afk-issues/SKILL.md   the orchestrator's instructions (skill `afk-issues:afk-issues`)
 skills/grab-issue/SKILL.md    single-issue supervised front-door (skill `afk-issues:grab-issue`)
 agents/issue-worker.md        the worker's instructions (subagent_type `issue-worker`)
 skills/afk-issues/tracker-adapter.md  the tracker adapter contract (GitHub default + Jira example)
+scripts/new-worktree.sh       create/reattach a batch worktree, ignored locally
+scripts/remove-worktree.sh    remove a worktree from the main checkout (cleanup)
 .claude-plugin/plugin.json    plugin manifest
 .claude-plugin/marketplace.json  self-marketplace (this repo installs itself)
 ```
+
+Worker Bash calls reach these via `${CLAUDE_PLUGIN_ROOT}/scripts/...`, which resolves to the plugin's install dir regardless of the worker's cwd (it runs in the target repo). They are the git fallback - a native worktree tool, if present, is still preferred.
 
 ## Architecture: manager / worker split
 

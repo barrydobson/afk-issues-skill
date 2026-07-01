@@ -52,14 +52,10 @@ default: `issue-<primary>-<slug>`; e.g. Jira: `<KEY>-<slug>`), where `<slug>`
 is the primary item's title lowercased, non-alphanumerics replaced with `-`,
 trimmed to a few words.
 
-Prefer a native worktree tool if available (something named like `EnterWorktree`, `WorktreeCreate`, `/worktree`, or a `--worktree` flag) - it handles placement and cleanup. Otherwise fall back to git:
+Prefer a native worktree tool if available (something named like `EnterWorktree`, `WorktreeCreate`, `/worktree`, or a `--worktree` flag) - it handles placement and cleanup. Otherwise use the bundled helper, passing the branch identifier you derived above. It creates the worktree under `.worktrees/`, ignores that dir locally (never via a committed `.gitignore`, which would leak into your PR diff and collide with other workers' parallel PRs), and prints the path to `cd` into:
 
 ```bash
-# Ignore the worktree dir LOCALLY, never in .gitignore - a committed .gitignore
-# change leaks into your PR diff and collides with other workers' parallel PRs.
-git check-ignore -q .worktrees || echo ".worktrees/" >> "$(git rev-parse --git-common-dir)/info/exclude"
-git worktree add ".worktrees/issue-<primary>-<slug>" -b "issue-<primary>-<slug>"
-cd ".worktrees/issue-<primary>-<slug>"
+cd "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/new-worktree.sh" "<branch>")"
 ```
 
 ### 2. Implement every issue in that one worktree
@@ -99,7 +95,7 @@ in the body of the pull request
 
 Your dispatch prompt is `dispatch-contract.md` §2 (Rework task).
 
-1. `cd` into the given worktree path (it persists on disk). If it is gone, recreate it: `git worktree add <path> <branch>` then `cd` in.
+1. `cd` into the given worktree path (it persists on disk). If it is gone, the bundled helper recreates it over the existing branch - either way this lands you in it: `cd "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/new-worktree.sh" "<branch>")"`. (With a native worktree tool, use that instead.)
 2. Read the feedback. For a human PR review, also pull context: `gh pr view <url> --json reviews,comments`.
 3. Make the changes. Re-run tests and checks; fix everything.
 4. Commit and push to the **same branch** - this updates the existing PR. Never open a second PR for the same work.
@@ -109,13 +105,12 @@ Your dispatch prompt is `dispatch-contract.md` §2 (Rework task).
 ## Cleanup mode
 
 Your dispatch prompt is `dispatch-contract.md` §3 (Cleanup task). Only after
-the PR is merged. Never `rm -rf` a worktree.
+the PR is merged. The bundled helper resolves the main checkout first (so it is
+safe to run from inside the worktree), removes it with `git worktree remove`
+(never `rm -rf`), and prunes:
 
 ```bash
-MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
-cd "$MAIN_ROOT"
-git worktree remove "<worktree-path>"
-git worktree prune
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/remove-worktree.sh" "<worktree-path>"
 ```
 
 If a native workspace-exit tool exists, prefer it.
