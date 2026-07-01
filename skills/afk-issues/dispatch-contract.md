@@ -95,6 +95,12 @@ LEARNINGS: gotchas/insights useful to other batches this run (omit if none)
 
 ## Rules
 
+- **Dispatch is a plain blocking Agent/Task call - never a named agent.** Both
+  front-doors dispatch the worker with `subagent_type: issue-worker` and no
+  `name`; the worker runs its prompt and its final message (§4 or §5) is
+  returned as the tool result. Naming the agent turns it into a persistent
+  teammate that idles on a mailbox heartbeat waiting for `SendMessage` mail this
+  contract never sends - so it never runs the task. No `name`, no `SendMessage`.
 - A worker's final message always ends in exactly one of `STATUS: COMPLETE`
   or `STATUS: NEED_INPUT` - never a bare summary with neither, and never
   trailing off mid-thought.

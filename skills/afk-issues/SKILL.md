@@ -84,7 +84,9 @@ Pass this as the model override when dispatching.
 
 ### 4. Dispatch workers
 
-Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your chosen model as the model override). Each `issue-worker` isolates its own worktree, so parallel workers will not collide. Build the dispatch prompt per `dispatch-contract.md` §1 (New task) - embed the full title/body/comments/state you already read for each issue in step 2, so the worker never re-fetches. Carry forward `LEARNINGS_FROM_PRIOR_BATCHES` from any batch already completed this run.
+Dispatch one `issue-worker` per batch (`subagent_type: issue-worker`, with your chosen model as the model override). Each `issue-worker` isolates its own worktree, so parallel workers will not collide.
+
+**Dispatch each worker as a plain blocking Agent/Task call - no `name`, no `SendMessage`.** A named agent becomes a persistent teammate that idles on a mailbox heartbeat waiting for mail this contract never sends; it will never run the prompt. The worker's final message *is* its report (`dispatch-contract.md` §4/§5) - you read it as the tool result, you do not poke it via a mailbox. Build the dispatch prompt per `dispatch-contract.md` §1 (New task) - embed the full title/body/comments/state you already read for each issue in step 2, so the worker never re-fetches. Carry forward `LEARNINGS_FROM_PRIOR_BATCHES` from any batch already completed this run.
 
 **Cap concurrency at 5 workers in flight.** Never fan out the whole backlog at once - it blows up rate limits, token spend, and merge conflicts. Dispatch in waves of at most 5: review and bank each PR as it lands (step 5), then dispatch the next batch into the freed slot. A 30-issue backlog runs as ~6 waves, not 30 simultaneous workers.
 
@@ -224,6 +226,7 @@ When you catch yourself thinking the excuse, the reality is the rule.
 | "Rework needs a fresh PR" | Push to the existing branch. A second PR on rework orphans the first. |
 | "The worker was blocked, I'll retry it" | Report it and move on. Don't retry a blocked issue blindly. |
 | "I'll dispatch all of these in parallel" | Check dependencies first. A dependent branched off `main` can't see its blocker's unmerged work - order the waves. |
+| "I'll spawn it as a named teammate and message it" | No. Blocking dispatch, no name. A named agent idles waiting for mail this contract never sends; the worker's final message is the report. |
 | "The worker fetched the issue itself, so its numbers must be right" | You already fetched it in step 2 - the dispatch prompt carries that content forward per `dispatch-contract.md` §1. A worker re-fetching means the contract wasn't followed. |
 | "It says tests pass, I'll mark it ready" | `ACCEPTANCE_CHECK` needs evidence (test output, a URL), not a restated claim. Missing or vague evidence is an automatic NEEDS WORK into the rework loop - not a pass. |
 | "I'll ask where this learning goes now" | It's an unattended run - a mid-run `AskUserQuestion` stalls the loop. Accumulate learnings and triage them in one batch at handoff (step 7). |
