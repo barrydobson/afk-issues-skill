@@ -50,10 +50,22 @@ before its blocker clears:
 
 ```sh
 # "PI-1288 blocks PI-1290" -> PI-1290 shows "is blocked by PI-1288"
-acli jira workitem link create --out <blocker> --in <blocked> --type Blocks --yes
+acli jira workitem link create --in <blocker> --out <blocked> --type Blocks --yes
 ```
 
-`--out` is the outward item (the blocker), `--in` is the inward (the blocked).
+**`acli` reverses `--in`/`--out` for `Blocks`.** Despite the flag names, the
+**blocker** goes in `--in` and the **blocked** item goes in `--out`. Getting this
+backwards silently shows ready work as blocked and vice versa - always verify
+after creating by viewing the *blocked* item and confirming it reads "is blocked
+by" the right key:
+
+```sh
+acli jira workitem view <blocked> --fields issuelinks --json \
+  | jq -r '.fields.issuelinks[] | select(.type.name=="Blocks") |
+      if .inwardIssue then "\(.inwardIssue.key) blocks <blocked>"
+      else "<blocked> blocks \(.outwardIssue.key)" end'
+```
+
 List an item's links with `acli jira workitem link list --key <KEY>`; see
 relationship names with `acli jira workitem link type`. Encode only *hard*
 blockers, and skip transitive links a chain already implies.
