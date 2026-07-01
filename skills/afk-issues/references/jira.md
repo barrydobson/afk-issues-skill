@@ -86,11 +86,12 @@ a body as plain text or ADF; anything else is stored verbatim, so `**bold**`,
 - **Any formatting** (headings, lists, bold, code, links, tables) must be ADF.
 
 Recommended converter: the **`jira-adf` skill** (wraps
-[marklassian](https://github.com/jamsinclair/marklassian)). Author the body in
-Markdown, convert, pass the JSON file:
+[marklassian](https://github.com/jamsinclair/marklassian)). Locate it by name (it
+may be installed at project or user level; the path varies) and follow its
+`SKILL.md` - author the body in Markdown, convert to an ADF JSON file, then pass
+it to `acli`:
 
 ```sh
-node <jira-adf tools>/md2adf.mjs body.md > body.json
 acli jira workitem edit --key <KEY> --description-file body.json --yes
 acli jira workitem comment create --key <KEY> --body-file body.json
 ```
