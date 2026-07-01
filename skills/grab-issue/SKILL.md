@@ -64,21 +64,24 @@ Pass this as the model override when dispatching.
 ### 4. Dispatch one issue-worker
 
 Dispatch a single `issue-worker` (`subagent_type: issue-worker`, build mode, with
-your chosen model as the override). The dispatch prompt needs only the inputs, not
-the workflow - the worker fetches, isolates a worktree, implements, tests, pushes,
-and opens **one draft PR** that closes the issue:
+your chosen model as the override). Build the dispatch prompt per
+`dispatch-contract.md` §1 (New task) - embed the title/body/comments/state you
+already read in step 2, so the worker never re-fetches from the tracker.
 
-- The issue number.
-- Anything worth flagging (a linked plan, a known tricky file).
-
-The worker reports back the PR URL, branch name, and worktree path. If it returns
-no PR (the issue turned out closed, or it was too large to keep reviewable), relay
-that and stop - do not retry blindly.
+The worker's final report is `dispatch-contract.md` §4 (Work-complete) or §5
+(Need-input). On §4 with no PR (the issue turned out closed, or it was too large
+to keep reviewable), relay that and stop - do not retry blindly. On §5, relay the
+`BLOCKED_ON` and `OPTIONS` to the user - this skill is supervised, so the human
+decides, not you.
 
 ### 5. Hand back for review
 
-Report to the user: the **draft** PR URL, branch name, worktree path, and the
-worker's one-line summary of how it addressed the issue. Then stop. You do not
+Report to the user: the **draft** PR URL, branch name, worktree path, the
+worker's one-line summary of how it addressed the issue, and its
+`ACCEPTANCE_CHECK` evidence verbatim (so the user can see what the worker
+claims to have verified, not just that it claims success). If the report
+included `LEARNINGS`, relay it as-is - you don't triage it yourself; a human
+is already in the room to judge what's worth keeping. Then stop. You do not
 review it and you do not mark it ready - that is the user's call now.
 
 ## Follow-up signals
@@ -89,14 +92,15 @@ reuse the worker's modes, never re-implement them here.
 - **"mark it ready" / "it passes"**: `gh pr ready <url>`. This is the only path to
   ready, and only on the user's say-so.
 - **"pick it back up" / "rework it: <feedback>"**: dispatch an `issue-worker` in
-  **rework mode** with the branch name, worktree path, and the user's feedback (or,
-  for a human PR review left on the PR, point it at `gh pr view <url> --json
-  reviews,comments`). It pushes to the same branch - never a second PR. Then hand
-  back again.
+  **rework mode** (dispatch prompt per `dispatch-contract.md` §2) with the branch
+  name, worktree path, and the user's feedback (or, for a human PR review left on
+  the PR, point it at `gh pr view <url> --json reviews,comments`). It pushes to
+  the same branch - never a second PR. Then hand back again.
 - **"it's merged" / "clean up"**: dispatch an `issue-worker` in **cleanup mode**
-  with the branch and worktree path (it runs `git worktree remove`, never
-  `rm -rf`). In adapter mode, if the merge does not auto-close the item, ask the
-  worker to also transition it to the adapter's *done* state.
+  (dispatch prompt per `dispatch-contract.md` §3) with the branch and worktree
+  path (it runs `git worktree remove`, never `rm -rf`). In adapter mode, if the
+  merge does not auto-close the item, ask the worker to also transition it to the
+  adapter's *done* state.
 
 ## Common Mistakes
 
@@ -109,3 +113,5 @@ When you catch yourself thinking the excuse, the reality is the rule.
 | "No `ready-for-agent` label, but it's obviously fine" | The gate is the point. No label, no dispatch - recommend `triage` and stop. |
 | "Rework needs a fresh PR" | Dispatch rework against the existing branch. A second PR orphans the first. |
 | "A quick state file will help me track this" | Never. The draft vs ready PR is the state. A file goes stale and lies. |
+| "The worker fetched the issue itself, so its numbers must be right" | You already fetched it in step 2 - the dispatch prompt carries that content forward per `dispatch-contract.md` §1. |
+| "It says tests pass, I'll relay that as a pass" | Relay the `ACCEPTANCE_CHECK` evidence itself to the user, not your own gloss on it - they decide, you're supervised here. |
