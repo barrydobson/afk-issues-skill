@@ -19,8 +19,8 @@ defaults.
 ## The contract
 
 A repo's adapter doc must let an agent answer each operation below. The GitHub
-column is the built-in default; the Jira column shows the convention used in
-`tote/platform-ex/dev-metrics` as a worked example.
+column is the built-in default; the Jira column shows one worked example of the
+convention (a Jira project keyed `PI`, driven via `acli`).
 
 | Operation | Used by | GitHub default | Jira example |
 |---|---|---|---|

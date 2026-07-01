@@ -18,6 +18,12 @@ assessing scope - the worker never re-fetches from the tracker. The issue
 reference is kept only for commit/PR references (`Closes #<n>`, or the
 adapter's PR-reference syntax).
 
+The embedded `STATE` is a scope-time snapshot, so there is a small window: an
+item closed between scope and dispatch reaches the worker looking actionable.
+This is the accepted cost of not re-fetching - the orchestrator catches the
+rare case at review (it looks at the issue anyway when checking the diff against
+it, step 5), rather than every worker paying a re-fetch to close the gap.
+
 ```
 MODE: build
 ISSUES:
