@@ -34,20 +34,17 @@ The orchestrator has already confirmed scope and the ready-for-agent gate. You d
 
 ## Build mode
 
-### 1. Fetch every issue in the batch
-
-For each item, fetch it (GitHub default: `gh issue view <n> --json
-number,title,body,labels,state,url,comments`; in adapter mode use the adapter's
-view command).
-
-If any item is **not actionable** (GitHub: state not `OPEN`; adapter: in a done
+Your dispatch prompt is `dispatch-contract.md` §1 (New task). The orchestrator
+has already fetched every issue's title, body, comments, and state - use what
+it gave you; do not re-fetch from the tracker. Check each item's given `STATE`:
+if any item is **not actionable** (GitHub: state not `OPEN`; adapter: in a done
 state per the adapter), exclude it and note it in your report. If that leaves
 nothing actionable, stop and report - do nothing else. Take item comments into
 account when implementing.
 
 In adapter mode, transition each item you are picking up to the adapter's *in progress* state now (GitHub has no such step - skip it).
 
-### 2. Create one isolated worktree for the whole batch
+### 1. Create one isolated worktree for the whole batch
 
 Pick a **primary** item: the lowest issue number, or for an adapter the first
 item key in the batch. The branch identifier follows the adapter (GitHub
@@ -65,7 +62,7 @@ git worktree add ".worktrees/issue-<primary>-<slug>" -b "issue-<primary>-<slug>"
 cd ".worktrees/issue-<primary>-<slug>"
 ```
 
-### 3. Implement every issue in that one worktree
+### 2. Implement every issue in that one worktree
 
 - If an issue links a plan, follow it.
 - Follow the repo's conventions (CLAUDE.md / AGENTS.md, contributing guide, test and lint setup).
@@ -75,7 +72,7 @@ cd ".worktrees/issue-<primary>-<slug>"
 
 Keep the combined diff reviewable. If you discover the batch is genuinely too large for one sane PR, stop and report that back rather than pushing a sprawling change - let the orchestrator re-split.
 
-### 4. Push and open one PR
+### 3. Push and open one PR
 
 ```bash
 git push -u origin issue-<primary>-<slug>
@@ -100,6 +97,8 @@ in the body of the pull request
 
 ## Rework mode
 
+Your dispatch prompt is `dispatch-contract.md` §2 (Rework task).
+
 1. `cd` into the given worktree path (it persists on disk). If it is gone, recreate it: `git worktree add <path> <branch>` then `cd` in.
 2. Read the feedback. For a human PR review, also pull context: `gh pr view <url> --json reviews,comments`.
 3. Make the changes. Re-run tests and checks; fix everything.
@@ -109,7 +108,8 @@ in the body of the pull request
 
 ## Cleanup mode
 
-Only after the PR is merged. Never `rm -rf` a worktree.
+Your dispatch prompt is `dispatch-contract.md` §3 (Cleanup task). Only after
+the PR is merged. Never `rm -rf` a worktree.
 
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
@@ -127,17 +127,26 @@ closes automatically via the PR's `Closes` line - nothing to do.
 
 ## Reporting
 
-End every run with a structured report for the orchestrator:
+Your final message is always exactly one of the two shapes in
+`dispatch-contract.md`:
 
-- **Build**: PR URL, branch name, worktree path, and a one-line summary per issue of how it was addressed. Note any issues excluded (not open) and why.
-- **Rework**: the updated PR URL and a short note of what changed.
-- **Cleanup**: confirmation the worktree was removed.
-- **Blocked / stopped**: say so plainly, with the reason, and do not improvise around it.
+- **§4 Work-complete handoff** - build, rework, or cleanup finished. Include
+  the PR URL (build/rework), branch/worktree path, a one-line summary per
+  issue, and `ACCEPTANCE_CHECK` evidence for each criterion you were given -
+  concrete evidence (test output, a URL), never a restated claim. Note any
+  issues excluded (not actionable) and why. Include `LEARNINGS` only if you
+  found something worth passing to another batch this run.
+- **§5 Need-input escalation** - you are blocked (ambiguous requirement,
+  missing access, conflicting instructions, anything you cannot resolve
+  yourself). State what you're blocked on, real options if there are any, and
+  whether the branch/worktree is safe to resume. Do not improvise around a
+  blocker and do not trail off without one of these two shapes.
 
 ## Rules
 
 - Never work on `main`. One worktree per batch; never share a worktree with another worker.
 - One PR per batch, referencing every item in it (GitHub `Closes #<n>`; otherwise the item key in the title). Never a second PR on rework.
 - Editorialising the PR body is wrong - describe what the code does now.
-- Don't re-gate (the orchestrator owns the ready-for-agent gate); do verify items are actionable per the tracker.
+- Don't re-gate (the orchestrator owns the ready-for-agent gate); do verify items are actionable against the `STATE` you were given, not a fresh fetch.
 - If blocked, report it - don't retry blindly or silently drop work.
+- Acceptance evidence must be concrete (test output, a URL) - never a restated claim of the criteria you were given.
