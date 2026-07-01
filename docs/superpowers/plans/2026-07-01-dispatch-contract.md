@@ -591,7 +591,7 @@ Run:
 ```bash
 grep -n 'dispatch-contract.md' skills/grab-issue/SKILL.md
 ```
-Expected: 3 matches (step 4's dispatch, and the two follow-up signals for rework/cleanup).
+Expected: 5 matches (step 4's dispatch prompt and report-shape sentences, the two follow-up signals for rework/cleanup, and the new Common Mistakes row).
 
 Run:
 ```bash
