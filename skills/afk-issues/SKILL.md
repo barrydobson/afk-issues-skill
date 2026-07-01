@@ -114,7 +114,7 @@ Interpret the exit code once:
 
 Before judging the diff, check the worker's `ACCEPTANCE_CHECK` (§4 of `dispatch-contract.md`). If it's missing, vague, or doesn't actually support the `WORK_ACCEPTANCE`/`RESULT_ACCEPTANCE` you gave at dispatch, that's an automatic NEEDS WORK - route it into the rework loop (step 6) same as any other NEEDS WORK, under the same 2-round cap. Don't take a worker's word for "tests pass" without the evidence line; don't surface this to the human before the rework cap is hit.
 
-**Learnings triage.** If the report includes `LEARNINGS`, decide per item: discard (noise) or keep (a durable gotcha or insight). For each kept item, pick a recommended destination - **CLAUDE.md** for a fact about the codebase any future contributor needs, **memory** for a fact about this session's preferences, corrections, or ephemeral project state. Present every kept item in one `AskUserQuestion` call (one question per item, options: your recommendation first, the other second - the tool's built-in "Other" covers a custom target like a docs file). On the human's answer, write it yourself: for `CLAUDE.md`, edit the file and commit directly to main (documentation about the codebase, not tracker/PR state, so it skips the PR flow - the human already approved content and destination); for memory or a custom target, use whatever mechanism that destination implies. `LEARNINGS` only exists in your session context for this run - if you don't triage it now, it's gone once the run ends.
+**Learnings triage.** If the report includes `LEARNINGS`, decide per item: discard (noise) or keep (a durable gotcha or insight). For each kept item, pick a recommended destination - **CLAUDE.md** for a fact about the codebase any future contributor needs, **memory** for a fact about this session's preferences, corrections, or ephemeral project state. **Do not ask about them now.** This is an unattended run - the human is away, so a mid-run `AskUserQuestion` would stall the whole loop until they happen back. Accumulate the kept items (with your recommended destination) in your session context and carry them to handoff (step 7), where you present them in one batch once the human is back. `LEARNINGS` only lives in your session context for this run, so hold onto the kept items until then rather than dropping them.
 
 Then record the verdict. The draft flag is the state; the comment is the rationale.
 
@@ -183,6 +183,8 @@ gh pr list --state open --json number,title,url,isDraft,headRefName
 
 Also call out any **cross-batch file overlaps** from step 2 so the human knows which PRs to merge in order to avoid conflicts.
 
+**Then triage the accumulated learnings** you held back from step 5. The human is back now, so this is the moment to ask. Present every kept item in one `AskUserQuestion` call (one question per item, options: your recommended destination first, the other second - the tool's built-in "Other" covers a custom target like a docs file). On the human's answer, write it yourself: for `CLAUDE.md`, edit the file and commit directly to main (documentation about the codebase, not tracker/PR state, so it skips the PR flow - the human already approved content and destination); for memory or a custom target, use whatever mechanism that destination implies. If there are no kept learnings, skip this.
+
 ### 8. Merge cleanup and human review feedback
 
 After handing off, the human reviews PRs one by one. Respond to two signals:
@@ -224,3 +226,4 @@ When you catch yourself thinking the excuse, the reality is the rule.
 | "I'll dispatch all of these in parallel" | Check dependencies first. A dependent branched off `main` can't see its blocker's unmerged work - order the waves. |
 | "The worker fetched the issue itself, so its numbers must be right" | You already fetched it in step 2 - the dispatch prompt carries that content forward per `dispatch-contract.md` §1. A worker re-fetching means the contract wasn't followed. |
 | "It says tests pass, I'll mark it ready" | `ACCEPTANCE_CHECK` needs evidence (test output, a URL), not a restated claim. Missing or vague evidence is an automatic NEEDS WORK into the rework loop - not a pass. |
+| "I'll ask where this learning goes now" | It's an unattended run - a mid-run `AskUserQuestion` stalls the loop. Accumulate learnings and triage them in one batch at handoff (step 7). |
