@@ -162,7 +162,7 @@ For a deeper look on a risky change, use `superpowers:requesting-code-review` in
 
 ### 6. Rework loop
 
-If your verdict is NEEDS WORK, dispatch a fresh `issue-worker` in **rework mode** (the branch and worktree persist). Build the dispatch prompt per `dispatch-contract.md` §2 (Rework task): the branch name and worktree path from step 4, and your specific feedback (including, where relevant, the reason from an insufficient `ACCEPTANCE_CHECK`).
+If your verdict is NEEDS WORK, dispatch a fresh `issue-worker` in **rework mode** (the branch and worktree persist). Build the dispatch prompt per `dispatch-contract.md` §2 (Rework task): the branch name and worktree path from step 4, the same model you chose for this batch at step 3, and your specific feedback (including, where relevant, the reason from an insufficient `ACCEPTANCE_CHECK`).
 
 It fixes the work in that worktree and pushes to the same branch, updating the existing PR. Re-review (step 5). Don't open a second PR for the same issues.
 

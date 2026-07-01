@@ -40,9 +40,14 @@ LEARNINGS_FROM_PRIOR_BATCHES: relevant gotchas from earlier batches this run, if
 MODE: rework
 BRANCH: issue-12-foo
 WORKTREE: .worktrees/issue-12-foo
+MODEL: <same override chosen for this batch at build, if any>
 FEEDBACK: the specific PASS/NEEDS WORK points, or a link to the human review
 RESULT_ACCEPTANCE: same PR updated, same Closes lines, checks green
 ```
+
+Carry the batch's build-time model choice into rework. Without it the worker
+falls back to its default model, so a batch escalated to a stronger model for
+build would silently drop to the weaker default for the fix.
 
 ## 3. Cleanup task
 

@@ -93,8 +93,9 @@ reuse the worker's modes, never re-implement them here.
   ready, and only on the user's say-so.
 - **"pick it back up" / "rework it: <feedback>"**: dispatch an `issue-worker` in
   **rework mode** (dispatch prompt per `dispatch-contract.md` §2) with the branch
-  name, worktree path, and the user's feedback (or, for a human PR review left on
-  the PR, point it at `gh pr view <url> --json reviews,comments`). It pushes to
+  name, worktree path, the same model you chose in step 3, and the user's feedback
+  (or, for a human PR review left on the PR, point it at
+  `gh pr view <url> --json reviews,comments`). It pushes to
   the same branch - never a second PR. Then hand back again.
 - **"it's merged" / "clean up"**: dispatch an `issue-worker` in **cleanup mode**
   (dispatch prompt per `dispatch-contract.md` §3) with the branch and worktree

@@ -80,9 +80,9 @@ gh pr create --draft --title "<concise title covering the batch>" --body "Closes
 Closes #<n2>
 ...
 
-<plain factual description of what the code now does>"
+<plain factual description of what the code now does>
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 ```
 
 Open the PR as **draft** - the orchestrator marks it ready once it passes
