@@ -10,7 +10,9 @@ A Claude Code plugin, not an application. It is almost entirely prose: markdown 
 skills/afk-issues/SKILL.md   the orchestrator's instructions (skill `afk-issues:afk-issues`)
 skills/grab-issue/SKILL.md    single-issue supervised front-door (skill `afk-issues:grab-issue`)
 agents/issue-worker.md        the worker's instructions (subagent_type `issue-worker`)
-skills/afk-issues/tracker-adapter.md  the tracker adapter contract (GitHub default + Jira example)
+skills/afk-issues/tracker-adapter.md  the abstract tracker contract + which reference implements it
+skills/afk-issues/references/github.md  built-in GitHub (gh) tracker mechanics
+skills/afk-issues/references/jira.md   Jira (acli) tracker mechanics, placeholders for the repo profile
 scripts/new-worktree.sh       create/reattach a batch worktree, ignored locally
 scripts/remove-worktree.sh    remove a worktree from the main checkout (cleanup)
 .claude-plugin/plugin.json    plugin manifest
@@ -31,10 +33,13 @@ The whole design is one rule - **the orchestrator never writes code, the worker 
 When you change behaviour, decide first which file owns it. Workflow knowledge (how to worktree, how to PR) lives in the worker; what-to-work-on judgement lives in the orchestrator. Don't duplicate one into the other.
 
 The tracker is pluggable. `skills/afk-issues/tracker-adapter.md` defines the
-contract; a repo supplies `docs/agents/issue-tracker.md` to drive a non-GitHub
-tracker (e.g. Jira via `acli`), and both the orchestrator and worker fall back
-to inline GitHub commands when no adapter doc is present. Worker owns pickup →
-in-progress; orchestrator owns merge → done; rework never transitions.
+abstract contract; `references/github.md` and `references/jira.md` hold the
+per-tracker mechanics (the actual `gh`/`acli` commands). A repo supplies a thin
+`docs/agents/issue-tracker.md` **profile** that names a reference and fills its
+project variables; with no profile the orchestrator and worker use the built-in
+GitHub reference. Keep mechanics in the references and project variables in the
+repo profile - don't restate one in the other. Worker owns pickup → in-progress;
+orchestrator owns merge → done; rework never transitions.
 
 ## Invariants that must survive any edit
 

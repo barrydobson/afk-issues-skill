@@ -51,6 +51,56 @@ Both ship in the **superpowers** plugin, which is its own marketplace. Install i
 
 (The marketplace is named `superpowers-dev`; the plugin is `superpowers`.) Once installed, this plugin picks them up automatically on the next run - no configuration needed.
 
+## Issue trackers
+
+GitHub is the default. To source work from another tracker (e.g. Jira), the repo
+drops a short `docs/agents/issue-tracker.md` **profile**. The tracker mechanics
+(the actual commands) live in the skill's `references/` - the profile only
+supplies the project-specific variables. See `skills/afk-issues/tracker-adapter.md`
+for the contract and `references/github.md` / `references/jira.md` for the
+mechanics.
+
+**GitHub** needs no profile - absence of `docs/agents/issue-tracker.md` selects
+the built-in GitHub reference, and the repo is inferred from the git remote. A
+profile is only worth writing to note something non-standard:
+
+```markdown
+# Issue tracker: GitHub
+
+Mechanics: afk-issues skill `references/github.md`. Repo inferred from the remote.
+Triage labels are the canonical five (`ready-for-agent`, etc.). Nothing to override.
+```
+
+**Jira** needs a profile supplying the instance, project key, optional scope
+filter, and the role->status map (workflow column names are per-project):
+
+```markdown
+# Issue tracker: Jira
+
+Mechanics: afk-issues skill `references/jira.md`. This file supplies the profile.
+
+- instance: yourteam.atlassian.net
+- project: PI                 (item keys are PI-<n>)
+- scope: labels = development-metrics   (every item carries this; drop from JQL if whole project is in scope)
+- PRDs are Epics; work items --parent'd to their PRD epic
+
+## Role -> workflow status
+| role            | status          |
+| --------------- | --------------- |
+| needs-triage    | Triage          |
+| needs-info      | Needs Info      |
+| ready-for-agent | Ready For Agent |
+| ready-for-human | Ready For Human |
+| wontfix         | Won't Fix       |
+| (in progress)   | In Progress     |
+| (done)          | Done (Complete) |
+
+Statuses to avoid: Selected for Development, In Feedback, In Progress (Gate 3).
+```
+
+Formatted Jira bodies must be ADF - `references/jira.md` recommends the `jira-adf`
+skill as converter, with a plain-text fallback when it's absent.
+
 ## Usage
 
 Trigger it with the issues you want cleared:

@@ -14,12 +14,14 @@ Your final message is your report back to the orchestrator - make it structured 
 ## Tracker
 
 Before anything else, resolve the tracker. Look for `docs/agents/issue-tracker.md`
-in the repo. If it exists, you are in **adapter mode** - that doc (and
-`docs/agents/triage-labels.md`) defines how to view items, check they are
-actionable, transition them, name your branch, and reference them from the PR;
-follow it wherever a `gh` command appears below. If it does not exist, use the
-built-in GitHub (`gh`) commands shown. State which mode you resolved in your
-report. The operations an adapter doc covers are listed in the plugin's
+in the repo. If it exists, you are in **adapter mode** - that profile names a
+tracker reference (the afk-issues skill's `references/jira.md`, etc.) and supplies the project
+variables; follow the reference's commands - view items, check they are
+actionable, transition them, name your branch, reference them from the PR -
+wherever a `gh` command appears below, filling the profile's values. If it does
+not exist, use the built-in GitHub reference (the afk-issues skill's
+`references/github.md`). State which
+mode you resolved in your report. The contract both cover is in the plugin's
 `tracker-adapter.md`.
 
 ## Modes

@@ -18,24 +18,39 @@ defaults.
 
 ## The contract
 
-A repo's adapter doc must let an agent answer each operation below. The GitHub
-column is the built-in default; the Jira column shows one worked example of the
-convention (a Jira project keyed `PI`, driven via `acli`).
+Every tracker must let an agent answer each operation below. This is the
+abstract contract; the concrete commands live in the built-in reference for each
+tracker (see next section).
 
-| Operation | Used by | GitHub default | Jira example |
-|---|---|---|---|
-| List ready items | orchestrator (scope) | `gh issue list --label ready-for-agent --state open --json number,title,labels` | `acli jira workitem search --jql "project = PI AND labels = development-metrics AND status = 'Ready For Agent'" --json` |
-| The gate | orchestrator | `ready-for-agent` label present | status = `Ready For Agent` |
-| View one item | both | `gh issue view <n> --json number,title,body,labels,state,url,comments` | `acli jira workitem view <KEY> --fields "*all" --json` |
-| Dependencies (blocks / blocked-by) | orchestrator (assess) | `Blocked by #<n>` / `Depends on #<n>` references in the issue body | `is blocked by` / `blocks` issue links (in the item's link fields) |
-| Verify actionable | worker | issue state is `OPEN` | status not in a `Done` category |
-| On pickup → in progress | worker | none (no-op; an open issue plus a draft PR is the signal) | `acli jira workitem transition --key <KEY> --status "In Progress"` |
-| PR reference syntax | worker | `Closes #<n>` in the body (auto-closes on merge) | `<KEY>` in the PR **title** (e.g. `PI-1288: ...`) and body; no auto-close, so the title carries the link the tracker's VCS integration follows |
-| Branch identifier | worker | `issue-<n>-<slug>` | `<KEY>-<slug>` (e.g. `PI-1288-add-foo`) |
-| On merge → done | orchestrator (cleanup) | automatic via `Closes` | `acli jira workitem transition --key <KEY> --status "Done (Complete)"` |
+| Operation | Used by |
+|---|---|
+| List ready items | orchestrator (scope) |
+| The gate | orchestrator |
+| View one item | both |
+| Dependencies (blocks / blocked-by) | orchestrator (assess) |
+| Verify actionable | worker |
+| On pickup → in progress | worker |
+| PR reference syntax | worker |
+| Branch identifier | worker |
+| On merge → done | orchestrator (cleanup) |
 
-The repo's adapter doc is the runtime artefact the agents read. This file
-exists so a human knows what their adapter doc must cover.
+## Built-in references
+
+The mechanics - the actual `gh` / `acli` commands for each operation - live in
+this skill so a repo doesn't restate them:
+
+- `references/github.md` - the built-in GitHub tracker (`gh`).
+- `references/jira.md` - Jira via `acli`, written with placeholders.
+
+A repo's `docs/agents/issue-tracker.md` is a thin **profile**: it names which
+reference applies and supplies only the project variables that reference can't
+know - for Jira that's the instance, project key, optional scope filter, and the
+role→status map (workflow column names are per-project). For GitHub the profile
+is usually unnecessary (the repo is inferred from the remote, and triage labels
+equal the role names). See the README for an example profile of each.
+
+To add a new tracker, add one `references/<tracker>.md` implementing the
+contract; a repo then profiles against it the same way.
 
 ## Ownership of transitions
 

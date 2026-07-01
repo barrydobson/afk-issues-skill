@@ -35,13 +35,13 @@ Hold the working list in your session context for the run. If resumed later, rec
 ### 1. Resolve scope
 
 **First, resolve the tracker.** Look for `docs/agents/issue-tracker.md` in the
-repo. If it exists, you are in **adapter mode** - that doc (and
-`docs/agents/triage-labels.md`) defines the commands for listing, viewing,
-gating, and transitioning items; follow it wherever this skill shows a `gh`
-command. If it does not exist, use the built-in GitHub (`gh`) commands shown
-below. Announce which mode you are in once, alongside the superpowers-mode
-announcement, then go heads-down. The operations an adapter doc must cover are
-listed in `tracker-adapter.md`.
+repo. If it exists, you are in **adapter mode** - that profile names a tracker
+reference (`references/jira.md`, etc.) and supplies the project variables;
+follow the reference's commands wherever this skill shows a `gh` command, filling
+the profile's values. If it does not exist, use the built-in GitHub reference
+(`references/github.md`). Announce which mode you are in once, alongside the
+superpowers-mode announcement, then go heads-down. The contract both cover is in
+`tracker-adapter.md`.
 
 Turn the instruction into a concrete list of open issue numbers.
 

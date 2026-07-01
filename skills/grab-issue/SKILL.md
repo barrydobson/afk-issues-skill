@@ -29,10 +29,13 @@ the review.
 ### 1. Resolve the tracker
 
 Look for `docs/agents/issue-tracker.md` in the repo. If it exists, you are in
-**adapter mode** - that doc (and `docs/agents/triage-labels.md`) defines how to
-view an item, check it is gated, and transition it; follow it wherever this skill
-shows a `gh` command. If it does not exist, use the built-in GitHub (`gh`)
-commands below. Announce which mode you are in once, then go heads-down.
+**adapter mode** - that profile names a tracker reference (the afk-issues skill's
+`references/jira.md`, etc.) and supplies the project variables; follow the
+reference's commands - view an item, check it is gated, transition it - wherever
+this skill shows a `gh` command, filling the profile's values. If it does not
+exist, use the built-in GitHub reference (the afk-issues skill's
+`references/github.md`). Announce which
+mode you are in once, then go heads-down.
 
 ### 2. Fetch and gate the one issue
 
