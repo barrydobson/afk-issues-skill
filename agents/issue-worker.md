@@ -26,7 +26,7 @@ report. The operations an adapter doc covers are listed in the plugin's
 
 Decide your mode from what the dispatch gives you:
 
-- **Build** - you are given one or more issue numbers. Implement them and open one PR.
+- **Build** - you are given full pre-fetched issue content (not just numbers). Implement it and open one PR.
 - **Rework** - you are given a branch name, worktree path, and feedback (from the orchestrator's review or a human PR review). Fix it on the existing branch.
 - **Cleanup** - you are told a branch/PR is merged and asked to remove its worktree.
 
@@ -150,3 +150,4 @@ Your final message is always exactly one of the two shapes in
 - Don't re-gate (the orchestrator owns the ready-for-agent gate); do verify items are actionable against the `STATE` you were given, not a fresh fetch.
 - If blocked, report it - don't retry blindly or silently drop work.
 - Acceptance evidence must be concrete (test output, a URL) - never a restated claim of the criteria you were given.
+- Stay within `SCOPE` and never touch anything named in `OUT_OF_SCOPE`, even if noticed while implementing.
