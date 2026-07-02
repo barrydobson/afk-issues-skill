@@ -93,7 +93,6 @@ Three JSON schemas, one per agent stage. Rework reuses `BUILD_SCHEMA`.
           out_of_scope: { type: "string" },
           work_acceptance: { type: "string" },
           result_acceptance: { type: "string" },
-          blocked_on: { type: "array", items: { type: "integer" } },
           issue_content: {
             type: "array",
             items: {
@@ -120,11 +119,29 @@ Three JSON schemas, one per agent stage. Rework reuses `BUILD_SCHEMA`.
         required: ["ref", "reason"]
       }
     },
+    waiting: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { ref: { type: "string" }, blocked_on: { type: "string" } },
+        required: ["ref", "blocked_on"]
+      }
+    },
     cross_batch_overlaps: { type: "array", items: { type: "string" } }
   },
-  required: ["batches", "dropped"]
+  required: ["batches", "dropped", "waiting"]
 }
 ```
+
+`batches` contains only issues ready to dispatch *now* - the control flow
+loop below dispatches every batch unconditionally, so "hold back a batch
+whose blocker hasn't merged" (`SKILL.md` step 2's rule) has to be Plan's own
+job, not the loop's. Nothing merges mid-run in this design (mutations happen
+after `Workflow()` returns, per the section above) - the only way both a
+blocker and its dependent complete in one run is the existing rule: put them
+in the same batch when they're small and adjacent, otherwise the dependent
+goes in `waiting`, not `batches`, exactly like a gated-out issue goes in
+`dropped` rather than `batches`.
 
 ### `BUILD_SCHEMA`
 
@@ -221,8 +238,9 @@ avoid.
 A thin wrapper, project-local (not plugin-discovered, for the same reason as
 above): resolves the issue list from the user's instruction (same rule as
 `afk-issues/SKILL.md` step 1 - explicit numbers or a `gh`/adapter query),
-then calls `Workflow({ scriptPath: '.claude/workflows/afk-workflow.js' },
-{ issues: [...] })`. After the workflow returns, it:
+then calls `Workflow({ scriptPath: '.claude/workflows/afk-workflow.js',
+args: { issues: [...] } })` - one options object, `args` as a property, not
+a second positional argument. After the workflow returns, it:
 
 - Applies mutations: `gh pr ready` + `gh pr comment` (built from
   `comment_markdown`) for each PASS; a parked-reason `gh pr comment` for each
