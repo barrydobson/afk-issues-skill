@@ -200,7 +200,7 @@ for (const batch of plan.batches) {
     agentType: 'issue-worker', ...modelOpt, schema: BUILD_SCHEMA
   })
   if (build.status === 'NEED_INPUT') {
-    results.push({ batch, build, verdict: 'NEED_INPUT' })
+    results.push({ batch, build })   // no `review` key - its absence IS the NEED_INPUT signal
     continue
   }
 
@@ -211,16 +211,22 @@ for (const batch of plan.batches) {
     build = await agent(reworkPrompt(batch, build, review), {
       agentType: 'issue-worker', ...modelOpt, schema: BUILD_SCHEMA
     })
+    if (build.status === 'NEED_INPUT') break   // rework got stuck - stop reviewing a build that no longer has a PR to check
     review = await agent(reviewPrompt(batch, build), { schema: REVIEW_SCHEMA })
     rounds++
   }
-  results.push({ batch, build, review, rounds })
+  results.push(build.status === 'NEED_INPUT' ? { batch, build } : { batch, build, review, rounds })
 }
 return { plan, results }
 ```
 
 No `pipeline()`, no `parallel()` - a plain `for` loop, so batch 2 never
-starts until batch 1's build/review/rework chain is fully resolved.
+starts until batch 1's build/review/rework chain is fully resolved. Every
+result has `batch` and `build`; `review/rounds` are present only when a
+review actually ran - their absence is how the wrapper skill (which applies
+every mutation, see above) tells a parked NEED_INPUT apart from a
+reviewed batch, instead of a second ad-hoc "verdict" field colliding with
+`review.verdict`.
 
 ## File changes
 
