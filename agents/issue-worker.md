@@ -44,7 +44,7 @@ state per the adapter), exclude it and note it in your report. If that leaves
 nothing actionable, stop and report - do nothing else. Take item comments into
 account when implementing.
 
-In adapter mode, transition each item you are picking up to the adapter's *in progress* state now (GitHub has no such step - skip it).
+In adapter mode, perform the reference's **On pickup -> in progress** operation for each item you are picking up now, running *every* command in that operation - for Jira that is the status transition **and** assigning the item to you (`--assignee @me`), not the transition alone. (Built-in GitHub has no such step - skip it.)
 
 ### 1. Create one isolated worktree for the whole batch
 

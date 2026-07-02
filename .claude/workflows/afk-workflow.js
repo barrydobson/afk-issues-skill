@@ -252,7 +252,7 @@ for (const batch of plan.batches) {
   const modelOpt = batch.model ? { model: batch.model } : {}
 
   phase('Build')
-  let build = await agent(buildPrompt(batch), { agentType: 'issue-worker', ...modelOpt, schema: BUILD_SCHEMA })
+  let build = await agent(buildPrompt(batch), { agentType: 'afk-issues:issue-worker', ...modelOpt, schema: BUILD_SCHEMA })
   if (build.status === 'NEED_INPUT') {
     results.push({ batch, build })   // no `review` key - its absence IS the NEED_INPUT signal
     continue
@@ -263,7 +263,7 @@ for (const batch of plan.batches) {
   let rounds = 0
   while (review.verdict === 'NEEDS_WORK' && rounds < 2) {
     phase('Build')
-    build = await agent(reworkPrompt(batch, build, review), { agentType: 'issue-worker', ...modelOpt, schema: BUILD_SCHEMA })
+    build = await agent(reworkPrompt(batch, build, review), { agentType: 'afk-issues:issue-worker', ...modelOpt, schema: BUILD_SCHEMA })
     if (build.status === 'NEED_INPUT') break   // rework got stuck - stop reviewing a build with no PR to check
     phase('Review')
     review = await agent(reviewPrompt(batch, build), { schema: REVIEW_SCHEMA })
