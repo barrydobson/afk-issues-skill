@@ -1,10 +1,11 @@
 export const meta = {
   name: 'afk-workflow',
-  description: 'Plan, build, and review a batch of tracker issues sequentially via schema-contracted agent stages',
+  description: 'Plan, build, review, and apply a batch of tracker issues sequentially via schema-contracted agent stages',
   phases: [
     { title: 'Plan', detail: 'resolve scope, gate, batch, pick a model and order per dependency' },
     { title: 'Build', detail: 'issue-worker implements one batch and opens a draft PR' },
     { title: 'Review', detail: 'read-only diff/CI/acceptance-evidence check, returns a verdict' },
+    { title: 'Apply', detail: 'the only stage that mutates the PR - gh pr ready and/or comment' },
   ],
 }
 
@@ -95,34 +96,50 @@ const REVIEW_SCHEMA = {
   required: ['verdict', 'summary', 'ci_status', 'acceptance_check_ok', 'comment_markdown'],
 }
 
+const APPLY_SCHEMA = {
+  type: 'object',
+  properties: {
+    action: { enum: ['readied', 'commented_only'] },
+    pr_url: { type: 'string' },
+  },
+  required: ['action', 'pr_url'],
+}
+
 function plannerPrompt() {
   const scopeInstruction = args.issues
     ? `Explicit issue numbers: ${args.issues.join(', ')}.`
     : `Resolve via this query: ${args.query}`
 
   return `You are the Plan stage of afk-workflow, a personal variant of the
-afk-issues plugin in this repo. Do exactly what skills/afk-issues/SKILL.md
-steps 1-3 describe, then return your decision as structured output - do not
-narrate it as prose.
+afk-issues plugin. Resolve scope, gate, batch, and pick a model, then return
+your decision as structured output - do not narrate it as prose.
 
-1. Resolve the tracker. If docs/agents/issue-tracker.md exists, read it and
-   follow the named reference under skills/afk-issues/references/ for every
-   command (gating state, view command, dependency syntax). Otherwise use
-   skills/afk-issues/references/github.md.
+1. Resolve the tracker. If docs/agents/issue-tracker.md exists in this repo,
+   read it - it names a tracker (e.g. Jira via acli) and this project's own
+   variables (board, project key, states). Use those variables plus your own
+   knowledge of that tracker's CLI to run the equivalent of the GitHub
+   commands below. If you cannot determine a confident equivalent for one of
+   them, do not guess - drop the affected issue into "dropped" with that
+   reason instead of risking a wrong command.
+   Otherwise (no adapter doc), this repo uses GitHub directly:
+     - List ready items: gh issue list --label ready-for-agent --state open --json number,title,labels
+     - The gate: "ready-for-agent" label present
+     - View one item: gh issue view <n> --json number,title,body,labels,state,url,comments
+     - Dependencies: "Blocked by #<n>" / "Depends on #<n>" in the issue body
+     - Verify actionable: issue state is OPEN
+     - PR reference syntax: "Closes #<n>" in the PR body, one per issue
 2. Resolve scope: ${scopeInstruction}
-3. Gate: drop anything not in the adapter's ready-for-agent state. Put each
-   dropped item in "dropped" with a one-line reason.
+3. Gate: drop anything not in the ready-for-agent (or adapter-equivalent)
+   state. Put each dropped item in "dropped" with a one-line reason.
 4. For every remaining item, fetch its full title/body/comments/state - the
    worker you dispatch later will not re-fetch, so capture everything here.
-5. Group into batches per skills/afk-issues/SKILL.md step 2 (same-file or
-   small mechanical changes together, size-limited for reviewability, keep
-   unrelated/large work separate). Check dependencies (Blocked by / Depends
-   on, or the adapter's link syntax): if a blocker and its dependent are
-   small and adjacent, put them in the SAME batch, blocker implemented
-   first. Otherwise put the dependent in "waiting" with which issue it's
-   blocked on - do NOT put it in "batches". Nothing merges during this run,
-   so a dependent whose blocker isn't in the same batch can never see the
-   blocker's work.
+5. Group into batches: same-file or small mechanical changes together,
+   size-limited for reviewability, keep unrelated/large work separate. Check
+   dependencies: if a blocker and its dependent are small and adjacent, put
+   them in the SAME batch, blocker implemented first. Otherwise put the
+   dependent in "waiting" with which issue it's blocked on - do NOT put it
+   in "batches". Nothing merges during this run, so a dependent whose
+   blocker isn't in the same batch can never see the blocker's work.
 6. For each batch, pick a model: "haiku" for well-described/mechanical work,
    null (inherit default) for ambiguous or design-sensitive work. Write
    work_acceptance (e.g. tests pass, lint clean) and result_acceptance (e.g.
@@ -147,13 +164,13 @@ OUT_OF_SCOPE: ${batch.out_of_scope || '(none noted)'}
 WORK_ACCEPTANCE: ${batch.work_acceptance}
 RESULT_ACCEPTANCE: ${batch.result_acceptance}
 
-Follow agents/issue-worker.md Build mode exactly. Use the ISSUES content
-above - do not re-fetch from the tracker. Report using the fields in your
-structured-output schema instead of dispatch-contract.md's prose STATUS
-line - the fields map directly: status/mode/pr_url/branch/worktree/
-per_issue_summary/work_acceptance_evidence/result_acceptance_evidence/
-excluded/learnings for a completed run, or status=NEED_INPUT with
-blocked_on/options/safe_to_resume if you get stuck.`
+Follow your Build mode instructions exactly. Use the ISSUES content above -
+do not re-fetch from the tracker. Report using the fields in your
+structured-output schema instead of your usual prose STATUS line - the
+fields map directly: status/mode/pr_url/branch/worktree/per_issue_summary/
+work_acceptance_evidence/result_acceptance_evidence/excluded/learnings for a
+completed run, or status=NEED_INPUT with blocked_on/options/safe_to_resume
+if you get stuck.`
 }
 
 function reworkPrompt(batch, build, review) {
@@ -165,16 +182,16 @@ FINDINGS:
 ${review.findings.map((f) => `  - ${f}`).join('\n')}
 RESULT_ACCEPTANCE: same PR updated, same Closes lines, checks green
 
-Follow agents/issue-worker.md Rework mode exactly - push to the existing
-branch, never a second PR. Report via your structured-output schema, same
-field mapping as a build-mode report.`
+Follow your Rework mode instructions exactly - push to the existing branch,
+never a second PR. Report via your structured-output schema, same field
+mapping as a build-mode report.`
 }
 
 function reviewPrompt(batch, build) {
-  return `You are the Review stage of afk-workflow - read-only. Do what
-skills/afk-issues/SKILL.md step 5 describes, except you never call
+  return `You are the Review stage of afk-workflow - read-only. Check the
+diff, CI, and acceptance evidence for one draft PR, except you never call
 "gh pr ready" or "gh pr comment" yourself; you only report a verdict and a
-drafted comment for the calling session to post.
+drafted comment for the Apply stage to post.
 
 PR: ${build.pr_url}
 ISSUES CLOSED: ${batch.issues.join(', ')}
@@ -192,13 +209,38 @@ WORKER'S ACCEPTANCE EVIDENCE: ${build.work_acceptance_evidence} / ${build.result
 3. Check the worker's acceptance evidence is concrete (test output, a URL),
    not a restated claim. Vague or missing evidence is automatic
    acceptance_check_ok=false and verdict NEEDS_WORK.
-4. Draft comment_markdown following skills/afk-issues/SKILL.md step 5's
-   comment format exactly (the "> *This review was generated by AI*" line,
-   a ## heading with verdict and closed issue(s), a one-sentence summary,
-   a bulleted findings list).
+4. Draft comment_markdown in this exact format: a "> *This review was
+   generated by AI*" line, then a blank line, then a "##" heading stating
+   the verdict and which issue(s) it resolves (e.g. "## PASS - resolves
+   #12"), a one-sentence summary, then a bulleted findings list with
+   **bold** lead-ins per bullet.
 
 Call the structured-output tool with: verdict, summary, findings, ci_status,
 acceptance_check_ok, comment_markdown.`
+}
+
+function applyPrompt(build, review) {
+  const readyMode = review.verdict === 'PASS'
+
+  return `You are the Apply stage of afk-workflow - the only stage that
+mutates this PR. Apply exactly this review's outcome, nothing else.
+
+PR: ${build.pr_url}
+VERDICT: ${review.verdict}
+
+${readyMode
+    ? `Run: gh pr ready ${build.pr_url}\nThen: gh pr comment ${build.pr_url} --body "<comment below>"`
+    : `Run only: gh pr comment ${build.pr_url} --body "<comment below>" - do NOT run gh pr ready, this PR stays draft.`}
+
+Comment body to post verbatim:
+${review.comment_markdown}
+
+Do not transition any tracker item to a "done" state here, even in adapter
+mode - nothing has merged yet. That transition is a separate, manual,
+post-merge step outside this workflow.
+
+Call the structured-output tool with: action ("readied" if you ran
+gh pr ready, "commented_only" if you only commented), pr_url.`
 }
 
 phase('Plan')
@@ -227,7 +269,14 @@ for (const batch of plan.batches) {
     review = await agent(reviewPrompt(batch, build), { schema: REVIEW_SCHEMA })
     rounds++
   }
-  results.push(build.status === 'NEED_INPUT' ? { batch, build } : { batch, build, review, rounds })
+  if (build.status === 'NEED_INPUT') {
+    results.push({ batch, build })
+    continue
+  }
+
+  phase('Apply')
+  const applied = await agent(applyPrompt(build, review), { schema: APPLY_SCHEMA })
+  results.push({ batch, build, review, rounds, applied })
 }
 
 return { plan, results }
