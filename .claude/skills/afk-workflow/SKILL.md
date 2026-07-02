@@ -52,11 +52,12 @@ build }` (no `review` key - parked) or `{ batch, build, review, rounds }`
 (reviewed):
 
 - **No `review` key (parked `NEED_INPUT`)**: no PR action - note
-  `build.blocked_on` and `build.options` for the handoff list below.
+  `build.blocked_on` and `build.options` for the handoff list below. If this
+  followed a rework attempt, the original build's draft PR may still exist
+  on that branch even though this report has no reliable `pr_url` for it -
+  check for an orphaned draft PR when triaging.
 - **`review.verdict === 'PASS'`**: `gh pr ready <build.pr_url>`, then
-  `gh pr comment <build.pr_url> --body <review.comment_markdown>`. In
-  adapter mode, also transition each closed item to the adapter's done
-  state if merging doesn't do it automatically.
+  `gh pr comment <build.pr_url> --body <review.comment_markdown>`.
 - **`review.verdict === 'NEEDS_WORK'` after the rework cap** (i.e.
   `rounds === 2` and still NEEDS_WORK): leave the PR as draft, post
   `review.comment_markdown` as-is (it already explains what's still wrong).
@@ -76,7 +77,7 @@ destination implies. Skip this step entirely if nothing came back.
 Same two lists as `afk-issues/SKILL.md` step 7:
 
 - **Ready to review**: every batch with `review.verdict === 'PASS'` - PR
-  URL, title, issues closed.
+  URL, branch, and per_issue_summary.
 - **Needs a human**: every parked NEED_INPUT (with `blocked_on`/`options`)
   and every rework-capped NEEDS_WORK (with why), plus `plan.dropped` and
   `plan.waiting` verbatim.
