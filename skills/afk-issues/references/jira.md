@@ -25,6 +25,7 @@ The commands below use these placeholders. The repo profile fills them:
 | Operation | Command |
 |---|---|
 | List ready items | `acli jira workitem search --jql "project = <PROJECT> AND <SCOPE> AND status = '<ready-for-agent status>'" --json` |
+| Get ticket comments | `acli jira workitem view <KEY> --fields comment --json` |
 | The gate | status = the `ready-for-agent` status |
 | View one item | `acli jira workitem view <KEY> --fields "*all" --json` |
 | Dependencies | `is blocked by` / `blocks` issue links (in the item's link fields) |
