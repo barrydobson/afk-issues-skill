@@ -13,6 +13,7 @@ agents/issue-worker.md        the worker's instructions (subagent_type `issue-wo
 skills/afk-issues/tracker-adapter.md  the abstract tracker contract + which reference implements it
 skills/afk-issues/references/github.md  built-in GitHub (gh) tracker mechanics
 skills/afk-issues/references/jira.md   Jira (acli) tracker mechanics, placeholders for the repo profile
+skills/afk-issues/references/pr-review.md  the shared PR review cycle both front-doors run
 scripts/new-worktree.sh       create/reattach a batch worktree, ignored locally
 scripts/remove-worktree.sh    remove a worktree from the main checkout (cleanup)
 .claude-plugin/plugin.json    plugin manifest
@@ -28,7 +29,7 @@ The whole design is one rule - **the orchestrator never writes code, the worker 
 - `SKILL.md` is the **manager**: resolve scope, gate the `ready-for-agent` label, group issues into batches, pick a model per batch, dispatch one `issue-worker` per batch, review each resulting PR, loop. It dispatches via the Agent/Task tool with `subagent_type: issue-worker`.
 - `issue-worker.md` is the **worker**: gate-trusting, it isolates a git worktree, implements the batch, pushes, and opens **one draft PR** closing every issue in the batch. Has three modes - build, rework, cleanup - selected from what the dispatch prompt provides.
 
-`skills/grab-issue/SKILL.md` is a second, **supervised single-issue** front-door: it resolves and gates one issue, dispatches one `issue-worker` to build it, then hands the draft PR back to the human - it never reviews or marks ready itself. Same manager-side-of-the-line as `afk-issues` (it decides and dispatches, never codes), minus the batch loop, the autonomy, and the AI review.
+`skills/grab-issue/SKILL.md` is a second, **supervised single-issue** front-door: it resolves and gates one issue, dispatches one `issue-worker` to build it, runs the same PR review cycle (`references/pr-review.md`) as `afk-issues` - marking a PASS ready, reworking a NEEDS WORK to the 2-round cap - then hands the PR back to the human for the merge. Same manager-side-of-the-line as `afk-issues` (it decides and dispatches, never codes), minus the batch loop and the autonomy.
 
 When you change behaviour, decide first which file owns it. Workflow knowledge (how to worktree, how to PR) lives in the worker; what-to-work-on judgement lives in the orchestrator. Don't duplicate one into the other.
 
