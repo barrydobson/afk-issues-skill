@@ -92,7 +92,7 @@ NEEDS WORK it reworks against the same branch (dispatch prompt per
 Two supervised-mode differences from the unattended run:
 
 - **CI stall (exit 124) or NEEDS WORK still failing after the rework cap:** the human is right here - leave the PR draft, comment what's wrong, and tell them at handoff rather than parking it silently.
-- **`gh pr ready` may prompt.** Under the harness auto-mode classifier, a controller readying its own worker's PR can be flagged as self-approval. In a supervised session the human just approves the prompt; if you ever run this hands-off and it's denied, hand the PASS to the human to ready manually.
+- **`gh pr ready` / the PASS comment can be denied by the auto-mode classifier.** Neither command approves anything - `ready` just flips the PR from draft to ready-for-review, the comment is only a comment - but the classifier can misread them as self-approval on a PR this session authored and, under auto mode, hard-*deny* rather than prompt. The one-off fix is an allow-rule: add `Bash(gh pr ready:*)` and `Bash(gh pr comment:*)` to your settings (a narrow Bash allow-rule resolves before the classifier). Until that's in place, hand the PASS to the human to ready manually.
 
 ### 6. Hand back
 

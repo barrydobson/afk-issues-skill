@@ -1,7 +1,7 @@
 {
   "name": "afk-issues",
   "description": "Work tracker issues to reviewed GitHub pull requests. afk-issues runs a batch unattended; grab-issue takes a single issue supervised. GitHub by default; pluggable to Jira and others via a repo adapter doc. Both skills dispatch the issue-worker agent.",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "author": {
     "name": "Barry Dobson"
   }
