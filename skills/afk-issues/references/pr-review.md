@@ -1,71 +1,99 @@
-# PR review cycle
+# Review cycle
 
-The shared manager-side procedure for reviewing **one** draft PR a worker has
-opened and acting on the verdict. Both front-doors (`afk-issues`, `grab-issue`)
-run this identically per PR - the review criteria, the CI watch, the
-`ACCEPTANCE_CHECK` gate, the rework loop, and the comment format do not differ
-between supervised and unattended runs. What differs lives in each `SKILL.md`:
-`afk-issues` loops this over many batches and holds learnings to handoff;
-`grab-issue` runs it once and hands the PR straight back. Neither restates the
-mechanics below.
+The manager-side procedure for taking **one** batch from a pushed branch (no
+PR yet) through to either a ready PR or a parked draft. Runs identically for
+every batch this run, whether the backlog is one issue or thirty - `SKILL.md`
+just loops it per batch and holds learnings to handoff.
 
-`draft = not yet passed review`, `ready = passed`. The draft flag is the state;
-the PR comment is the human-readable rationale. The manager marks ready
-(`gh pr ready`) only after a PASS here - never a worker.
+**No PR exists before this cycle runs, and it creates at most one, once.**
+Deciding to open the PR *is* the review - there is no separate "mark ready"
+step afterwards. See `dispatch-contract.md` for why: a PR opened only once
+approved never needs a `gh pr ready` flip, which is what auto-mode's classifier
+blocks as self-approval when the same session both dispatched the work and
+readies it.
 
 ## 1. Wait for CI, bail if it stalls
 
-Workers open PRs as **draft**. Don't loop re-polling `gh pr checks` with the
-model - that spends tokens and can hang forever on a queued pipeline. Use a
-single blocking watch with a hard wall-clock timeout (the shell waits, you
-don't):
+No PR exists yet, so there are no PR checks to watch - watch the pushed branch
+directly:
 
 ```bash
-timeout 900 gh pr checks <url> --watch --interval 30 --fail-fast; echo "checks_exit=$?"
-# macOS without GNU coreutils: use `gtimeout` in place of `timeout`.
+run_id=$(gh run list --branch "<branch>" --json databaseId,headSha \
+  --jq --arg sha "<head-sha>" '.[] | select(.headSha == $sha) | .databaseId' | head -1)
 ```
 
-Interpret the exit code once:
+- **No run found:** this repo's CI doesn't trigger on push (only on
+  `pull_request`, or there is none). Don't wait for one to appear - proceed to
+  step 2 with no CI signal yet; the PR's own checks (once opened) will be the
+  first feedback anyone gets. Note this once per run, not once per batch.
+- **Run found:** watch it with a hard wall-clock timeout (the shell waits, you
+  don't):
 
-- **0** - all checks green. Proceed to the verdict.
-- **non-zero from `gh`** (a check failed) - that's a NEEDS WORK; cite the failing check.
-- **124** - the `timeout` fired: CI is still queued/running after 15 min. **Do not keep waiting.** Leave the PR as draft, comment that CI never settled, and escalate (the caller decides how - handoff, or ask the human). Don't block on a stuck pipeline.
+  ```bash
+  timeout 900 gh run watch "$run_id" --exit-status; echo "checks_exit=$?"
+  # macOS without GNU coreutils: use `gtimeout` in place of `timeout`.
+  ```
 
-## 2. Quick review against the issue
+  - **0** - green. Proceed to step 2.
+  - **non-zero from `gh`** - a job failed. That's NEEDS FIXES - skip straight
+    to step 3's rework branch, citing the failing job.
+  - **124** - still running after 15 min. **Do not keep waiting.** There is no
+    PR to leave a comment on yet, so open one now, **as draft**, purely to give
+    the human somewhere to look; comment that CI never settled, and surface it
+    at handoff. Don't block the run on a stuck pipeline.
 
-A **quick** review against the original issue(s) - not a full audit:
+## 2. Dispatch a reviewer
 
-- Does the diff actually resolve what the issue asked for?
-- Is it a sane size and scoped to the issue (no unrelated churn)?
-- Are there tests, and do the PR's checks pass?
+Build the diff package (`scripts/review-package.sh <base-sha> <head-sha>`, run
+from the main checkout - it prints the file path). Dispatch a fresh
+`pr-reviewer` subagent (`dispatch-contract.md` §4) with the issue content, the
+worker's report, and that path. Pick its model the same way as the batch's
+build model (`SKILL.md` step 3) - a mechanical batch doesn't need the
+strongest reviewer either.
 
-Before judging the diff, check the worker's `ACCEPTANCE_CHECK` (§4 of
-`dispatch-contract.md`). If it's missing, vague, or doesn't actually support the
-`WORK_ACCEPTANCE`/`RESULT_ACCEPTANCE` you gave at dispatch, that's an automatic
-NEEDS WORK - route it into the rework loop (§4) under the same 2-round cap.
-Don't take a worker's word for "tests pass" without the evidence line.
+Read only the verdict it returns (`dispatch-contract.md` §7) - never the raw
+diff yourself. That separation is the point: the reviewer, not you, is the one
+who looked at the code, so your review of "does this PR deserve to exist" and
+the worker's authorship stay independent.
 
-For a deeper look on a risky change, use `superpowers:requesting-code-review`
-instead of eyeballing - if it is not installed, do the quick manual review above
-and flag the risk at handoff.
+## 3. Act on the verdict
 
-## 3. Verdict and comment
-
-Record the verdict. On PASS, mark ready then comment; on NEEDS WORK (or a
-stalled CI), leave it draft and comment.
+**`APPROVED`:**
 
 ```bash
-# PASS: mark ready (the durable "passed review" signal), then comment.
-gh pr ready <url>
-gh pr comment <url> --body <BODY>
+gh pr create --title "<batch title>" --body "Closes #<n1>
+Closes #<n2>
+...
 
-# NEEDS WORK or CI stalled: leave it draft, just comment.
-gh pr comment <url> --body <BODY>
+<plain factual description of what the code now does>
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 ```
 
-**Comment formatting rules.** The comment is read by a human scanning PRs - keep
-it skimmable. Use GitHub Markdown and follow this structure exactly; never write
-a single run-on paragraph.
+No `--draft`. The PR opens ready-for-review because opening it is the
+approval - there is nothing to flip afterwards, and `gh pr ready` never gets
+called on a batch's PR.
+
+Follow with a comment carrying the reviewer's findings, in the same factual,
+skimmable format below - state what was checked, never "PASS"/"approved"/"LGTM"
+wording; that phrasing is what reads as self-certification, not the PR's mere
+existence.
+
+**`NEEDS FIXES`:** dispatch the same `issue-worker` in rework mode
+(`dispatch-contract.md` §2) with the reviewer's findings as feedback, same
+model as build. No PR exists yet to update. Loop back to step 1.
+
+**Rework cap (2 rounds) hit, still `NEEDS FIXES`:** open the PR now anyway, **as
+draft**, with a comment summarising what's still wrong, and surface it at
+handoff. This is the one case a draft PR appears in this cycle - it flags a
+stuck batch, it doesn't certify one, so it doesn't carry the self-approval
+pattern either. Endless rework loops are the main way this burns tokens
+(especially on a stronger model); a human untangling a stuck PR is cheaper than
+a third automated attempt.
+
+**Comment formatting rules.** The comment is read by a human scanning PRs -
+keep it skimmable. Use GitHub Markdown and follow this structure exactly; never
+write a single run-on paragraph.
 
 1. **First line, always:** `> *This review was generated by AI*` followed by a blank line.
 2. **Title:** a single `##` heading stating what it resolves, e.g. `## Resolves #1290` or `## 🔧 NEEDS WORK - #1290`.
@@ -95,20 +123,3 @@ The view resolves the issue but two points block ready.
 - **Tests:** no coverage for the `unmapped` domain fallthrough - add a case.
 - **CI:** `lint-sql` is failing on `sql/120` (line 42, trailing comma).
 ```
-
-## 4. Rework loop
-
-On a NEEDS WORK verdict, dispatch a fresh `issue-worker` in **rework mode** (the
-branch and worktree persist). Build the dispatch prompt per
-`dispatch-contract.md` §2 (Rework task): the branch name and worktree path, the
-**same model** chosen for this batch at build, and your specific feedback
-(including, where relevant, the reason from an insufficient `ACCEPTANCE_CHECK`).
-
-It fixes the work in that worktree and pushes to the same branch, updating the
-existing PR - never a second PR. Re-review (back to §1).
-
-**Cap rework at 2 rounds per PR.** If a PR is still NEEDS WORK after two rework
-attempts, stop - do not keep dispatching workers at it. Leave it as draft with a
-comment summarising what's still wrong, and escalate to the human. Endless
-rework loops are the main way this burns tokens (especially on a stronger
-model); a human untangling a stuck PR is cheaper than a third automated attempt.

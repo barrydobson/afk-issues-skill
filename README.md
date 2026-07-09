@@ -1,17 +1,18 @@
 # afk-issues
 
-A Claude Code plugin that works through a batch of GitHub issues to reviewed pull requests, unsupervised.
+A Claude Code plugin that works through GitHub issues to reviewed pull requests, unsupervised - one issue or a whole backlog.
 
-You give it a list of issues (or a query like "everything labelled bug"). It scopes and groups the work, dispatches a worker per batch into isolated git worktrees, reviews each resulting PR against the original issue, reworks what falls short, and hands you back a tidy list of PRs that are ready to merge.
+You give it an issue number, several, or a query like "everything labelled bug". It scopes and groups the work, dispatches a worker per batch into isolated git worktrees, dispatches a reviewer against each batch's diff before any PR exists, reworks what falls short, and hands you back a tidy list of PRs that are ready to merge.
 
 ## What's inside
 
 | Path | Purpose |
 |------|---------|
-| `skills/afk-issues/SKILL.md` | The orchestrator. Scopes, groups, dispatches, reviews, loops. Does **not** write code itself. |
-| `agents/issue-worker.md` | The worker the orchestrator dispatches. Carries one or more issues to a single draft PR in its own worktree; also handles rework and worktree cleanup. |
+| `skills/afk-issues/SKILL.md` | The orchestrator. Scopes, groups, dispatches, reviews, loops. Does **not** write code or read diffs itself. |
+| `agents/issue-worker.md` | The worker the orchestrator dispatches. Carries one or more issues to a pushed branch in its own worktree; also handles rework and worktree cleanup. Never opens a PR. |
+| `agents/pr-reviewer.md` | The reviewer the orchestrator dispatches per batch, once CI is green. Read-only: returns a spec-compliance + quality verdict, never touches PR state. |
 
-Once the plugin is installed, Claude Code discovers both automatically - the skill as `afk-issues:afk-issues` and the agent as the `issue-worker` subagent type.
+Once the plugin is installed, Claude Code discovers all three automatically - the skill as `afk-issues:afk-issues`, and the agents as the `issue-worker` and `pr-reviewer` subagent types.
 
 ## Requirements
 
@@ -103,22 +104,30 @@ skill as converter, with a plain-text fallback when it's absent.
 
 ## Usage
 
-Trigger it with the issues you want cleared:
+Trigger it with the issue(s) you want cleared:
 
 ```
+/afk-issues 42
 /afk-issues 12 15 20
+grab issue 17
 afk-issues work all issues labelled bug
 afk all the ready-for-agent issues
 clear the backlog while I'm away
 ```
 
-It confirms the resolved list with you once, then goes heads-down. PRs land as **draft** and are marked **ready** only after passing the orchestrator's review - so you only ever merge work that's been checked.
+A single issue is just a batch of one - same loop, no extra check-ins. Unless
+the request is genuinely ambiguous, it goes straight to work: no PR exists for
+a batch until the orchestrator's dispatched reviewer has approved it, so a PR
+only ever appears already decided - non-draft if approved, draft only if it's
+been parked for a human (CI never settled, or two rework rounds weren't
+enough).
 
 ## How it works
 
-- **You're the manager, not the builder.** The skill scopes and reviews; the `issue-worker` agent does the implementation.
-- **State lives in GitHub, never on disk.** A PR's draft/ready status *is* the review state, so a resumed session reconstructs everything from `gh`.
-- **Bounded.** Concurrency caps at 5 workers in flight; rework caps at 2 rounds per PR before a PR is parked for a human. CI is watched once with a hard timeout rather than polled in a loop.
+- **You're the manager, not the builder.** The skill scopes and reviews; the `issue-worker` agent implements, the `pr-reviewer` agent reviews.
+- **State lives in GitHub, never on disk.** A PR's existence and draft flag *is* the review state, so a resumed session reconstructs everything from `gh`.
+- **No self-approval.** Workers never open a PR; the orchestrator opens one itself, once, only after a dispatched review passes - so it never has to mark its own dispatched work "ready", which is what auto-mode's classifier blocks as self-approval.
+- **Bounded.** Concurrency caps at 5 workers in flight; rework caps at 2 rounds per batch before it's parked for a human. CI is watched once with a hard timeout rather than polled in a loop.
 
 ## Licence
 

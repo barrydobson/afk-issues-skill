@@ -4,34 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code plugin, not an application. It is almost entirely prose: markdown instruction files plus three JSON manifests, validated by reading rather than running. The one exception is `scripts/` - a couple of git-plumbing helpers the worker invokes. Mechanical checks: the JSON stays well-formed, the frontmatter stays valid, and the scripts stay `shellcheck`/`shfmt` clean.
+A Claude Code plugin, not an application. It is almost entirely prose: markdown instruction files plus three JSON manifests, validated by reading rather than running. The one exception is `scripts/` - a couple of git-plumbing helpers the worker and orchestrator invoke. Mechanical checks: the JSON stays well-formed, the frontmatter stays valid, and the scripts stay `shellcheck`/`shfmt` clean.
 
 ```
-skills/afk-issues/SKILL.md   the orchestrator's instructions (skill `afk-issues:afk-issues`)
-skills/grab-issue/SKILL.md    single-issue supervised front-door (skill `afk-issues:grab-issue`)
+skills/afk-issues/SKILL.md   the orchestrator's instructions (skill `afk-issues:afk-issues`) - one issue or a whole backlog
 agents/issue-worker.md        the worker's instructions (subagent_type `issue-worker`)
+agents/pr-reviewer.md         the reviewer's instructions (subagent_type `pr-reviewer`), read-only
 skills/afk-issues/tracker-adapter.md  the abstract tracker contract + which reference implements it
 skills/afk-issues/references/github.md  built-in GitHub (gh) tracker mechanics
 skills/afk-issues/references/jira.md   Jira (acli) tracker mechanics, placeholders for the repo profile
-skills/afk-issues/references/pr-review.md  the shared PR review cycle both front-doors run
+skills/afk-issues/references/pr-review.md  the review cycle every batch runs: CI watch, reviewer dispatch, verdict, PR creation/parking
 scripts/new-worktree.sh       create/reattach a batch worktree, ignored locally
 scripts/remove-worktree.sh    remove a worktree from the main checkout (cleanup)
+scripts/review-package.sh     bundle a batch's diff into one file for the reviewer to read
 .claude-plugin/plugin.json    plugin manifest
 .claude-plugin/marketplace.json  self-marketplace (this repo installs itself)
 ```
 
 Worker Bash calls reach these via `${CLAUDE_PLUGIN_ROOT}/scripts/...`, which resolves to the plugin's install dir regardless of the worker's cwd (it runs in the target repo). They are the git fallback - a native worktree tool, if present, is still preferred.
 
-## Architecture: manager / worker split
+## Architecture: manager / worker / reviewer split
 
-The whole design is one rule - **the orchestrator never writes code, the worker never makes scope decisions.** Keep edits on the correct side of that line.
+The whole design is one rule - **the orchestrator never writes code, the worker never makes scope decisions, and neither of them reads a diff with their own eyes.** Keep edits on the correct side of that line.
 
-- `SKILL.md` is the **manager**: resolve scope, gate the `ready-for-agent` label, group issues into batches, pick a model per batch, dispatch one `issue-worker` per batch, review each resulting PR, loop. It dispatches via the Agent/Task tool with `subagent_type: issue-worker`.
-- `issue-worker.md` is the **worker**: gate-trusting, it isolates a git worktree, implements the batch, pushes, and opens **one draft PR** closing every issue in the batch. Has three modes - build, rework, cleanup - selected from what the dispatch prompt provides.
+- `SKILL.md` is the **manager**: resolve scope, gate the `ready-for-agent` label, group issues into batches, pick a model per batch, dispatch one `issue-worker` per batch, dispatch one `pr-reviewer` per batch once CI is green, act on the verdict, loop. It dispatches via the Agent/Task tool with `subagent_type: issue-worker` / `subagent_type: pr-reviewer`. A single issue is just a batch of one - there is no separate supervised front-door; the same loop reports back as soon as that one batch's review lands.
+- `issue-worker.md` is the **worker**: gate-trusting, it isolates a git worktree, implements the batch, and pushes. It never opens a PR. Has three modes - build, rework, cleanup - selected from what the dispatch prompt provides.
+- `pr-reviewer.md` is the **reviewer**: read-only, dispatched fresh per batch once CI is green. Reads a diff package (never re-derives it with git commands, never crawls the wider codebase without a named reason), returns a spec-compliance + quality verdict. Never touches PR state - that decision belongs to the orchestrator once it has the verdict.
 
-`skills/grab-issue/SKILL.md` is a second, **supervised single-issue** front-door: it resolves and gates one issue, dispatches one `issue-worker` to build it, runs the same PR review cycle (`references/pr-review.md`) as `afk-issues` - marking a PASS ready, reworking a NEEDS WORK to the 2-round cap - then hands the PR back to the human for the merge. Same manager-side-of-the-line as `afk-issues` (it decides and dispatches, never codes), minus the batch loop and the autonomy.
-
-When you change behaviour, decide first which file owns it. Workflow knowledge (how to worktree, how to PR) lives in the worker; what-to-work-on judgement lives in the orchestrator. Don't duplicate one into the other.
+When you change behaviour, decide first which file owns it. Workflow knowledge (how to worktree, how to push) lives in the worker; how to judge a diff lives in the reviewer; what-to-work-on and when-to-open-a-PR judgement lives in the orchestrator. Don't duplicate one into another.
 
 The tracker is pluggable. `skills/afk-issues/tracker-adapter.md` defines the
 abstract contract; `references/github.md` and `references/jira.md` hold the
@@ -46,10 +46,10 @@ orchestrator owns merge → done; rework never transitions.
 
 These are load-bearing. Breaking one quietly breaks the plugin's safety story.
 
-- **State lives in the system of record, never on disk.** No state files. Draft vs ready PR status *is* the review state (always GitHub); issue lifecycle state lives in the tracker (GitHub issues, or whatever the repo's `docs/agents/issue-tracker.md` adapter describes). A resumed session reconstructs everything from those systems. Any edit that introduces a tracking file is wrong.
-- **Draft = not yet reviewed, ready = passed.** Workers always open PRs `--draft`. Only the orchestrator marks ready (`gh pr ready`), and only after review. This is what stops a human merging unreviewed work.
-- **Bounded loops.** Concurrency caps at 5 workers in flight; rework caps at 2 rounds per PR; CI is watched with one `timeout ... gh pr checks --watch` call (exit 124 = bail), never polled in a loop. These caps exist to bound token spend - don't relax them without saying why.
-- **One PR per batch, one worktree per batch.** Rework pushes to the same branch (never a second PR). Cleanup uses `git worktree remove`, never `rm -rf`.
+- **State lives in the system of record, never on disk.** No state files. A PR's existence and draft flag *is* the review state (always GitHub); issue lifecycle state lives in the tracker (GitHub issues, or whatever the repo's `docs/agents/issue-tracker.md` adapter describes). A resumed session reconstructs everything from those systems. Any edit that introduces a tracking file is wrong.
+- **No PR until decided; no separate ready-flip, ever.** `issue-worker` never calls `gh pr create`. The orchestrator creates the PR itself, once, only after a `pr-reviewer` verdict of `APPROVED`, and opens it non-draft - there is no later `gh pr ready` call. This is deliberate, not a missing step: a PR opened only once approved never needs a ready-flip, which is exactly the "approving Claude's own pull request" pattern auto-mode's classifier blocks as self-approval. A draft PR only ever appears when a batch is being *parked* (CI stalled, or the rework cap was hit) - flagging a failure, never certifying a success, so it doesn't trip the same rule. Don't reintroduce a worker-opens-draft / orchestrator-marks-ready flow; that's the exact shape this design routes around.
+- **Bounded loops.** Concurrency caps at 5 workers in flight; rework caps at 2 rounds per batch; CI is watched with one bounded `timeout ... gh run watch` call against the pushed branch (exit 124 = bail), never polled in a loop, and never via `gh pr checks` before a PR exists. These caps exist to bound token spend - don't relax them without saying why.
+- **One PR per batch (at most), one worktree per batch.** Rework pushes to the same branch (never a second PR). Cleanup uses `git worktree remove`, never `rm -rf`.
 
 ## Optional dependency posture
 
