@@ -1,7 +1,7 @@
 {
   "name": "afk-issues",
   "description": "Work one or more tracker issues to reviewed GitHub pull requests, unattended. GitHub by default; pluggable to Jira and others via a repo adapter doc. Dispatches an issue-worker to implement each batch and a pr-reviewer to review it before any PR is opened.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": {
     "name": "Barry Dobson"
   }

@@ -44,7 +44,7 @@ run_id=$(gh run list --branch "<branch>" --json databaseId,headSha \
 
 ## 2. Dispatch a reviewer
 
-Build the diff package (`scripts/review-package.sh <base-sha> <head-sha>`, run
+Build the diff package (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh" <base-sha> <head-sha>`, run
 from the main checkout - it prints the file path). Dispatch a fresh
 `pr-reviewer` subagent (`dispatch-contract.md` §4) with the issue content, the
 worker's report, and that path. Pick its model the same way as the batch's

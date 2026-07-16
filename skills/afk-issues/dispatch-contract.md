@@ -85,7 +85,7 @@ the diff with git commands.
 ISSUES: <same REF + TITLE/BODY/COMMENTS/STATE the worker was given>
 SCOPE / OUT_OF_SCOPE: <same as given to the worker>
 WORKER_REPORT: <the worker's §5 report, verbatim>
-DIFF_PACKAGE: <path printed by scripts/review-package.sh BASE_SHA HEAD_SHA>
+DIFF_PACKAGE: <path printed by ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh BASE_SHA HEAD_SHA>
 MODEL: <chosen the same way as the batch's build model - step 3 of SKILL.md>
 ```
 
