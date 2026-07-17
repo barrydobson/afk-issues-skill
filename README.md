@@ -11,6 +11,7 @@ You give it an issue number, several, or a query like "everything labelled bug".
 | `skills/afk-issues/SKILL.md` | The orchestrator. Scopes, groups, dispatches, reviews, loops. Does **not** write code or read diffs itself. |
 | `agents/issue-worker.md` | The worker the orchestrator dispatches. Carries one or more issues to a pushed branch in its own worktree; also handles rework and worktree cleanup. Never opens a PR. |
 | `agents/pr-reviewer.md` | The reviewer the orchestrator dispatches per batch, once CI is green. Read-only: returns a spec-compliance + quality verdict, never touches PR state. |
+| `skills/afk-spec/SKILL.md` | A second orchestrator: carries one written **spec** to one open PR unattended, by wrapping superpowers' `writing-plans` and `subagent-driven-development`. Where `afk-issues` clears a backlog of tickets, `afk-spec` drives a single spec to a single branch and PR. |
 
 Once the plugin is installed, Claude Code discovers all three automatically - the skill as `afk-issues:afk-issues`, and the agents as the `issue-worker` and `pr-reviewer` subagent types.
 
@@ -121,6 +122,21 @@ a batch until the orchestrator's dispatched reviewer has approved it, so a PR
 only ever appears already decided - non-draft if approved, draft only if it's
 been parked for a human (CI never settled, or two rework rounds weren't
 enough).
+
+### afk-spec: a whole spec to one PR
+
+Where `afk-issues` works a backlog of independent tickets, `afk-spec` takes one
+detailed spec and drives it to a single open PR unattended - it plans the spec
+into ordered tasks, builds them sequentially on one branch (dependencies become
+order, not merge gates), reviews the whole branch, and opens exactly one PR.
+
+```
+/afk-spec docs/specs/my-feature.md
+afk-spec this design doc while I'm away
+```
+
+`afk-spec` **requires** the superpowers plugin (it wraps two of its skills) -
+unlike the optional power-ups above, it will not run without it.
 
 ## How it works
 

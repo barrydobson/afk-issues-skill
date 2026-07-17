@@ -14,6 +14,7 @@ skills/afk-issues/tracker-adapter.md  the abstract tracker contract + which refe
 skills/afk-issues/references/github.md  built-in GitHub (gh) tracker mechanics
 skills/afk-issues/references/jira.md   Jira (acli) tracker mechanics, placeholders for the repo profile
 skills/afk-issues/references/pr-review.md  the review cycle every batch runs: CI watch, reviewer dispatch, verdict, PR creation/parking
+skills/afk-spec/SKILL.md      the second orchestrator (skill `afk-spec:afk-spec`) - one written spec -> one open PR, wrapping superpowers' writing-plans + subagent-driven-development
 scripts/new-worktree.sh       create/reattach a batch worktree, ignored locally
 scripts/remove-worktree.sh    remove a worktree from the main checkout (cleanup)
 scripts/review-package.sh     bundle a batch's diff into one file for the reviewer to read
@@ -54,6 +55,11 @@ These are load-bearing. Breaking one quietly breaks the plugin's safety story.
 ## Optional dependency posture
 
 The skill checks at runtime whether two `superpowers` skills (`dispatching-parallel-agents`, `requesting-code-review`) are installed and announces which mode it's in. They are recommendations with built-in fallbacks, not hard dependencies - keep them that way. Any new external skill reference must degrade gracefully when absent.
+
+`afk-spec` is the deliberate exception to the optional-dependency posture above:
+its two superpowers skills (`writing-plans`, `subagent-driven-development`) are
+**hard** dependencies - it wraps them and has nothing to fall back to, so it
+fails fast if they are absent rather than degrading.
 
 ## Conventions
 
